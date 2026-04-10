@@ -208,28 +208,53 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
   };
 }
 
-export function speakBangla(text: string) {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
+function splitTextToChunks(text: string, maxLen = 180): string[] {
+  const cleaned = text.replace(/\n/g, '। ').replace(/\s+/g, ' ').trim();
+  if (cleaned.length <= maxLen) return [cleaned];
 
-  const speak = () => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'bn-BD';
-    utterance.rate = 0.85;
-    const voices = window.speechSynthesis.getVoices();
-    const bnVoice = voices.find(v => v.lang.startsWith('bn'));
-    if (bnVoice) utterance.voice = bnVoice;
-    window.speechSynthesis.speak(utterance);
-  };
+  const chunks: string[] = [];
+  let remaining = cleaned;
 
-  const voices = window.speechSynthesis.getVoices();
-  if (voices.length > 0) {
-    speak();
-  } else {
-    window.speechSynthesis.onvoiceschanged = () => {
-      speak();
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-    setTimeout(speak, 500);
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining);
+      break;
+    }
+    let splitAt = remaining.lastIndexOf('।', maxLen);
+    if (splitAt < 20) splitAt = remaining.lastIndexOf(' ', maxLen);
+    if (splitAt < 20) splitAt = maxLen;
+    chunks.push(remaining.slice(0, splitAt + 1).trim());
+    remaining = remaining.slice(splitAt + 1).trim();
   }
+
+  return chunks.filter(c => c.length > 0);
+}
+
+function playChunksSequentially(chunks: string[], index = 0) {
+  if (index >= chunks.length) return;
+
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=bn&client=tw-ob&q=${encodeURIComponent(chunks[index])}`;
+  const audio = new Audio(url);
+  audio.onended = () => playChunksSequentially(chunks, index + 1);
+  audio.onerror = () => {
+    // Fallback to browser speechSynthesis
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(chunks[index]);
+      utterance.lang = 'bn-BD';
+      utterance.rate = 0.85;
+      utterance.onend = () => playChunksSequentially(chunks, index + 1);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+  audio.play().catch(() => {
+    audio.onerror?.(new Event('error'));
+  });
+}
+
+export function speakBangla(text: string) {
+  // Stop any ongoing speech
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+  const chunks = splitTextToChunks(text);
+  playChunksSequentially(chunks);
 }
