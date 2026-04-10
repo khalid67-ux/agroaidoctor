@@ -35,6 +35,9 @@ const ResultCard = ({ result }: ResultCardProps) => {
         <span className={`font-bold text-lg ${isHealthy ? "text-primary-foreground" : "text-destructive-foreground"}`}>
           {isHealthy ? "সুস্থ পাতা ✅" : "রোগ সনাক্ত হয়েছে ⚠️"}
         </span>
+        {confidence < 75 && (
+          <span className="text-xs opacity-80 ml-1">(প্রাথমিক বিশ্লেষণ)</span>
+        )}
       </div>
 
       <div className="p-5 space-y-4">
@@ -72,6 +75,12 @@ const ResultCard = ({ result }: ResultCardProps) => {
             </div>
           </div>
         ) : null}
+
+        {!isHealthy && (
+          <p className="text-xs text-muted-foreground text-center italic border-t border-border pt-3">
+            ⚠️ এটি একটি প্রাথমিক বিশ্লেষণ। সঠিক রোগ নির্ণয়ের জন্য কৃষি বিশেষজ্ঞের পরামর্শ নিন।
+          </p>
+        )}
 
         {/* Audio button */}
         <Button

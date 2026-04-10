@@ -27,7 +27,7 @@ const Index = () => {
     setLoading(true);
     setError(null);
     try {
-      const prediction = await simulatePrediction(preview);
+      const prediction = await simulatePrediction(preview, crop || undefined);
       setResult(prediction);
     } catch {
       setError("বিশ্লেষণে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
