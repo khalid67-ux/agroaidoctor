@@ -208,7 +208,7 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
   };
 }
 
-function splitTextToChunks(text: string, maxLen = 180): string[] {
+function splitTextToChunks(text: string, maxLen = 200): string[] {
   const cleaned = text.replace(/\n/g, '। ').replace(/\s+/g, ' ').trim();
   if (cleaned.length <= maxLen) return [cleaned];
 
@@ -229,91 +229,66 @@ function splitTextToChunks(text: string, maxLen = 180): string[] {
 
   return chunks.filter(c => c.length > 0);
 }
-
-let currentAudio: HTMLAudioElement | null = null;
-let isSpeaking = false;
-
-function findBengaliVoice(): SpeechSynthesisVoice | null {
-  if (!('speechSynthesis' in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
-  return voices.find(v =>
-    v.lang.startsWith('bn') ||
-    v.name.toLowerCase().includes('bengali') ||
-    v.name.toLowerCase().includes('bangla')
-  ) || null;
-}
-
-async function playAudioChunk(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const audio = new Audio(url);
-    currentAudio = audio;
-    audio.onended = () => { currentAudio = null; resolve(); };
-    audio.onerror = () => { currentAudio = null; reject(new Error('audio_failed')); };
-    audio.play().catch((e) => { currentAudio = null; reject(e); });
-  });
-}
-
-async function speakWithBengaliVoice(text: string): Promise<boolean> {
-  const voice = findBengaliVoice();
-  if (!voice) return false;
-
-  return new Promise((resolve) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = voice;
-    utterance.lang = voice.lang;
-    utterance.rate = 0.85;
-    utterance.onend = () => resolve(true);
-    utterance.onerror = () => resolve(false);
-    window.speechSynthesis.speak(utterance);
-  });
-}
-
 export type SpeakStatus = 'idle' | 'speaking' | 'error';
 type StatusCallback = (status: SpeakStatus) => void;
 
+let isSpeaking = false;
+
 export function stopBangla() {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   isSpeaking = false;
 }
 
+function speakChunk(text: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'bn-BD';
+    utterance.rate = 0.85;
+
+    // Try to find a Bengali voice, but don't require it
+    const voices = window.speechSynthesis.getVoices();
+    const bnVoice = voices.find(v =>
+      v.lang.startsWith('bn') ||
+      v.name.toLowerCase().includes('bengali') ||
+      v.name.toLowerCase().includes('bangla')
+    );
+    if (bnVoice) {
+      utterance.voice = bnVoice;
+      utterance.lang = bnVoice.lang;
+    }
+
+    utterance.onend = () => resolve();
+    utterance.onerror = (e) => {
+      // 'canceled' is not a real error
+      if (e.error === 'canceled') resolve();
+      else reject(e);
+    };
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
 export async function speakBangla(text: string, onStatus?: StatusCallback) {
   stopBangla();
+
+  if (!('speechSynthesis' in window)) {
+    onStatus?.('error');
+    return;
+  }
+
   isSpeaking = true;
   onStatus?.('speaking');
 
   const chunks = splitTextToChunks(text);
 
-  // Try Google Translate TTS first
-  let googleWorked = true;
-  for (const chunk of chunks) {
-    if (!isSpeaking) return;
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=bn&client=tw-ob&q=${encodeURIComponent(chunk)}`;
-    try {
-      await playAudioChunk(url);
-    } catch {
-      googleWorked = false;
-      break;
+  try {
+    for (const chunk of chunks) {
+      if (!isSpeaking) return;
+      await speakChunk(chunk);
     }
+  } catch {
+    // speech failed
   }
 
-  if (googleWorked) {
-    isSpeaking = false;
-    onStatus?.('idle');
-    return;
-  }
-
-  // Fallback: only use browser voice if it's actually Bengali
-  const fullText = chunks.join(' ');
-  const success = await speakWithBengaliVoice(fullText);
   isSpeaking = false;
-
-  if (!success) {
-    onStatus?.('error');
-  } else {
-    onStatus?.('idle');
-  }
+  onStatus?.('idle');
 }
