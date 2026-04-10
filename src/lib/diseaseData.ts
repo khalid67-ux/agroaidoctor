@@ -67,10 +67,10 @@ export function simulatePrediction(imageData: string): Promise<PredictionResult>
         hash = ((hash << 5) - hash) + imageData.charCodeAt(i);
         hash |= 0;
       }
-      // Add timestamp randomness
-      hash = Math.abs(hash + Date.now()) % 100;
+      // Use only image hash (no timestamp) for deterministic per-image results
+      hash = Math.abs(hash) % 100;
 
-      if (hash < 50) {
+      if (hash < 25) {
         resolve({ status: 'healthy', confidence: 0.85 + Math.random() * 0.14 });
       } else {
         const diseaseIndex = hash % diseases.length;
