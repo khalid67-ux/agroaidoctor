@@ -30,10 +30,6 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
     speakBangla(text, (status) => {
       setSpeakStatus(status);
-      if (status === 'error') {
-        toast.error("এই ডিভাইসে বাংলা ভয়েস পাওয়া যায়নি।");
-        setSpeakStatus('idle');
-      }
     });
   };
 
