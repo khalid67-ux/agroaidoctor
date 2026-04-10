@@ -70,7 +70,7 @@ export function simulatePrediction(imageData: string): Promise<PredictionResult>
       // Add timestamp randomness
       hash = Math.abs(hash + Date.now()) % 100;
 
-      if (hash < 20) {
+      if (hash < 50) {
         resolve({ status: 'healthy', confidence: 0.85 + Math.random() * 0.14 });
       } else {
         const diseaseIndex = hash % diseases.length;
@@ -87,12 +87,26 @@ export function simulatePrediction(imageData: string): Promise<PredictionResult>
 export function speakBangla(text: string) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'bn-BD';
-  utterance.rate = 0.85;
-  // Try to find a Bengali voice
+
+  const speak = () => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'bn-BD';
+    utterance.rate = 0.85;
+    const voices = window.speechSynthesis.getVoices();
+    const bnVoice = voices.find(v => v.lang.startsWith('bn'));
+    if (bnVoice) utterance.voice = bnVoice;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const voices = window.speechSynthesis.getVoices();
-  const bnVoice = voices.find(v => v.lang.startsWith('bn'));
-  if (bnVoice) utterance.voice = bnVoice;
-  window.speechSynthesis.speak(utterance);
+  if (voices.length > 0) {
+    speak();
+  } else {
+    window.speechSynthesis.onvoiceschanged = () => {
+      speak();
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+    // Fallback if onvoiceschanged never fires
+    setTimeout(speak, 500);
+  }
 }
