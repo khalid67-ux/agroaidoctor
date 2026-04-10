@@ -35,6 +35,9 @@ const ResultCard = ({ result }: ResultCardProps) => {
         <span className={`font-bold text-lg ${isHealthy ? "text-primary-foreground" : "text-destructive-foreground"}`}>
           {isHealthy ? "সুস্থ পাতা ✅" : "রোগ সনাক্ত হয়েছে ⚠️"}
         </span>
+        {confidence < 75 && (
+          <span className="text-xs opacity-80 ml-1">(প্রাথমিক বিশ্লেষণ)</span>
+        )}
       </div>
 
       <div className="p-5 space-y-4">
