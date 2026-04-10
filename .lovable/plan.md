@@ -1,55 +1,29 @@
 
-Goal: make the “বাংলায় শুনুন” button stop speaking English and behave predictably on all devices.
 
-What I found
-- `src/lib/diseaseData.ts` still allows an English fallback:
-  - it first tries Google Translate TTS via `new Audio(...)`
-  - if that fails, it falls back to `window.speechSynthesis`
-  - many devices do not have a real Bengali voice, so that fallback can speak English
-- There is no user-facing error when Bangla playback is unavailable.
-- The button in `src/components/ResultCard.tsx` always stays enabled, so users can retry and get the same bad fallback.
+## Problem
+The "বাংলায় শুনুন" button fails because:
+1. **Google Translate TTS URL is blocked by CORS** — browsers don't allow `translate.google.com/translate_tts` from web pages, so it always fails
+2. **Bengali voice check is too strict** — `findBengaliVoice()` looks for a voice named "Bengali" in `getVoices()`, but Chrome/Edge use network-based voices that don't always appear in that list
+3. **Result**: both methods fail → error toast appears
 
-Plan
-1. Remove English fallback behavior
-- Update `speakBangla()` so it never uses a non-Bengali browser voice.
-- If browser speech is used at all, first verify the selected voice is actually Bengali (`bn`, `bn-BD`, `bn-IN`, or Bengali voice name).
-- If no Bengali voice exists, do not speak in English.
+## Fix
+Use `window.speechSynthesis` as the **primary** method with `lang = 'bn-BD'` set directly on the utterance — **without** requiring a matching voice from `getVoices()`. Chrome and Edge on Windows will speak Bengali correctly when `lang` is set to `bn-BD`, even if no Bengali voice appears in the voice list.
 
-2. Make remote Bangla audio more robust
-- Refactor the Google TTS playback into a controlled async queue instead of recursive loose audio handlers.
-- Keep chunking, whitespace cleanup, and sequential playback.
-- Track the currently playing audio instance so repeated clicks stop the previous Bangla audio cleanly.
+Remove the broken Google Translate TTS approach entirely (it cannot work from a browser due to CORS).
 
-3. Add a safe failure path in Bangla
-- If remote audio is blocked/fails and no real Bengali device voice is available, show a Bangla toast/message such as:
-  “এই ডিভাইসে বাংলা ভয়েস পাওয়া যায়নি।”
-- This is better than speaking English incorrectly.
+### Changes to `src/lib/diseaseData.ts`
+- **Remove** `playAudioChunk`, `findBengaliVoice`, and the Google TTS URL logic
+- **Rewrite** `speakBangla()` to:
+  1. Use `SpeechSynthesisUtterance` with `lang = 'bn-BD'` and `rate = 0.85`
+  2. Optionally set a Bengali voice if one is found in `getVoices()`, but don't require it
+  3. Split text into chunks and speak them sequentially via `speechSynthesis.speak()`
+  4. Only show error if `speechSynthesis` is completely unavailable (not supported in browser)
+- **Remove** the error toast for "voice not found" — just speak with `lang: 'bn-BD'` and let the browser handle it
 
-4. Improve the button UX
-- In `src/components/ResultCard.tsx`, add speaking/loading state:
-  - “লোড হচ্ছে...”
-  - optional stop/replay handling
-- Disable rapid repeated clicks while audio is starting.
+### Changes to `src/components/ResultCard.tsx`
+- Remove the error toast handler since speaking will always attempt Bengali
+- Keep the speaking/stop toggle button as-is
 
-5. Verify end-to-end
-- Test healthy and disease result cards.
-- Test on the preview flow after clicking “বাংলায় শুনুন”.
-- Confirm outcomes are only:
-  - proper Bangla speech, or
-  - a Bangla error/toast
-- Confirm English speech never happens again.
+### Why this works
+Chrome, Edge, and most modern browsers on Windows/Android support Bengali speech when `lang: 'bn-BD'` is explicitly set on the utterance, even without a locally installed Bengali voice. The browser fetches an appropriate voice from its cloud services.
 
-Files to update
-- `src/lib/diseaseData.ts`
-  - rebuild `speakBangla`
-  - add Bengali-voice detection
-  - remove unsafe English fallback
-  - manage audio queue/current playback
-- `src/components/ResultCard.tsx`
-  - add speaking state and clearer feedback
-- optionally `src/pages/Index.tsx`
-  - only if needed for passing toast/state helpers cleanly
-
-Technical note
-- In a frontend-only app, “always Bangla on every device” is only possible if the remote TTS request succeeds.
-- The correct fix here is: never fall back to English; instead use Bangla audio when available and show a Bangla error when it is not.
