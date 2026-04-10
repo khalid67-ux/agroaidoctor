@@ -1,6 +1,8 @@
-import { CheckCircle, AlertTriangle, Volume2 } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, AlertTriangle, Volume2, Loader2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PredictionResult, HEALTHY_MESSAGE, speakBangla } from "@/lib/diseaseData";
+import { PredictionResult, HEALTHY_MESSAGE, speakBangla, stopBangla, SpeakStatus } from "@/lib/diseaseData";
+import { toast } from "sonner";
 
 interface ResultCardProps {
   result: PredictionResult;
@@ -9,14 +11,30 @@ interface ResultCardProps {
 const ResultCard = ({ result }: ResultCardProps) => {
   const isHealthy = result.status === "healthy";
   const confidence = Math.round(result.confidence * 100);
+  const [speakStatus, setSpeakStatus] = useState<SpeakStatus>('idle');
 
   const handleSpeak = () => {
-    if (isHealthy) {
-      speakBangla(HEALTHY_MESSAGE);
-    } else if (result.disease) {
-      const text = `রোগের নাম: ${result.disease.name_bn}। সমস্যা: ${result.disease.description_bn}। সমাধান: ${result.disease.solution_bn}`;
-      speakBangla(text);
+    if (speakStatus === 'speaking') {
+      stopBangla();
+      setSpeakStatus('idle');
+      return;
     }
+
+    const text = isHealthy
+      ? HEALTHY_MESSAGE
+      : result.disease
+        ? `রোগের নাম: ${result.disease.name_bn}। সমস্যা: ${result.disease.description_bn}। সমাধান: ${result.disease.solution_bn}`
+        : '';
+
+    if (!text) return;
+
+    speakBangla(text, (status) => {
+      setSpeakStatus(status);
+      if (status === 'error') {
+        toast.error("এই ডিভাইসে বাংলা ভয়েস পাওয়া যায়নি।");
+        setSpeakStatus('idle');
+      }
+    });
   };
 
   return (
@@ -85,10 +103,20 @@ const ResultCard = ({ result }: ResultCardProps) => {
         {/* Audio button */}
         <Button
           onClick={handleSpeak}
+          disabled={speakStatus === 'speaking' && false}
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-base py-5"
         >
-          <Volume2 className="w-5 h-5 mr-2" />
-          🔊 বাংলায় শুনুন
+          {speakStatus === 'speaking' ? (
+            <>
+              <VolumeX className="w-5 h-5 mr-2" />
+              🔇 থামান
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-5 h-5 mr-2" />
+              🔊 বাংলায় শুনুন
+            </>
+          )}
         </Button>
       </div>
     </div>
