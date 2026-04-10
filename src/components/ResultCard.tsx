@@ -76,6 +76,12 @@ const ResultCard = ({ result }: ResultCardProps) => {
           </div>
         ) : null}
 
+        {!isHealthy && (
+          <p className="text-xs text-muted-foreground text-center italic border-t border-border pt-3">
+            ⚠️ এটি একটি প্রাথমিক বিশ্লেষণ। সঠিক রোগ নির্ণয়ের জন্য কৃষি বিশেষজ্ঞের পরামর্শ নিন।
+          </p>
+        )}
+
         {/* Audio button */}
         <Button
           onClick={handleSpeak}
