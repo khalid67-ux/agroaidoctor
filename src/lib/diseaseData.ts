@@ -229,6 +229,8 @@ function splitTextToChunks(text: string, maxLen = 200): string[] {
 
   return chunks.filter(c => c.length > 0);
 }
+export type SpeakStatus = 'idle' | 'speaking' | 'error';
+type StatusCallback = (status: SpeakStatus) => void;
 
 let isSpeaking = false;
 
