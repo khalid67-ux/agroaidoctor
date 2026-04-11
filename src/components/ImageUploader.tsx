@@ -47,6 +47,7 @@ const ImageUploader = ({ onImageSelect, preview }: ImageUploaderProps) => {
             </div>
             <p className="text-foreground font-semibold text-lg">পাতার ছবি আপলোড করুন</p>
             <p className="text-muted-foreground text-sm">JPG বা PNG ফাইল টানুন অথবা ক্লিক করুন</p>
+            <p className="text-muted-foreground text-xs mt-1">🌿 শুধুমাত্র পরিষ্কার পাতার ছবি দিন</p>
           </div>
         )}
         <input

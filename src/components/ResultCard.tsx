@@ -13,6 +13,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
   const isUncertain = result.status === "uncertain";
   const isPossiblyDiseased = result.status === "possibly_diseased";
   const isDiseased = result.status === "disease";
+  const isNotLeaf = result.status === "not_leaf";
   const confidence = Math.round(result.confidence * 100);
   const [speakStatus, setSpeakStatus] = useState<SpeakStatus>('idle');
 
@@ -49,6 +50,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
   const getHeaderStyle = () => {
     if (isHealthy) return "gradient-hero";
+    if (isNotLeaf) return "bg-destructive";
     if (isPossiblyDiseased) return "bg-warning";
     if (isUncertain) return "bg-muted";
     return "bg-destructive";
@@ -56,6 +58,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
   const getBorderStyle = () => {
     if (isHealthy) return "border-success/30 bg-accent";
+    if (isNotLeaf) return "border-destructive/40 bg-destructive/5";
     if (isPossiblyDiseased) return "border-warning/30 bg-warning/5";
     if (isUncertain) return "border-muted-foreground/20 bg-muted/30";
     return "border-destructive/30 bg-destructive/5";
@@ -63,6 +66,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
   const getHeaderIcon = () => {
     if (isHealthy) return <CheckCircle className="w-7 h-7 text-primary-foreground" />;
+    if (isNotLeaf) return <AlertTriangle className="w-7 h-7 text-destructive-foreground" />;
     if (isPossiblyDiseased) return <ShieldAlert className="w-7 h-7 text-primary-foreground" />;
     if (isUncertain) return <HelpCircle className="w-7 h-7 text-foreground" />;
     return <AlertTriangle className="w-7 h-7 text-destructive-foreground" />;
@@ -70,6 +74,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
   const getHeaderText = () => {
     if (isHealthy) return "সুস্থ পাতা ✅";
+    if (isNotLeaf) return "❌ পাতা সনাক্ত হয়নি";
     if (isPossiblyDiseased) return "সম্ভবত রোগাক্রান্ত ⚠️";
     if (isUncertain) return "ছবি অস্পষ্ট 🔄";
     return "রোগ সনাক্ত হয়েছে ⚠️";
@@ -86,8 +91,18 @@ const ResultCard = ({ result }: ResultCardProps) => {
       </div>
 
       <div className="p-5 space-y-4">
-        {/* Confidence bar — show for all except pure uncertain */}
-        {!isUncertain && (
+        {/* Not a leaf */}
+        {isNotLeaf && (
+          <div className="text-center py-3 space-y-3">
+            <p className="text-foreground font-medium">{result.uncertainMessage}</p>
+            <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+              💡 শুধুমাত্র পরিষ্কার পাতার ছবি দিন। পাতা ছাড়া অন্য কিছু আপলোড করলে সঠিক ফলাফল পাওয়া যাবে না।
+            </p>
+          </div>
+        )}
+
+        {/* Confidence bar — show for all except uncertain and not_leaf */}
+        {!isUncertain && !isNotLeaf && (
           <>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">নির্ভুলতা</span>
@@ -174,8 +189,8 @@ const ResultCard = ({ result }: ResultCardProps) => {
           </p>
         )}
 
-        {/* Audio button */}
-        <Button
+        {/* Audio button — hide for not_leaf */}
+        {!isNotLeaf && <Button
           onClick={handleSpeak}
           disabled={speakStatus === 'loading'}
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-base py-5"
@@ -196,7 +211,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
               🔊 বাংলায় শুনুন
             </>
           )}
-        </Button>
+        </Button>}
       </div>
     </div>
   );
