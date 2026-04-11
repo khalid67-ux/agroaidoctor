@@ -1,45 +1,40 @@
 
 
 ## Goal
-Add a leaf detection gate before disease classification. Non-leaf images get rejected with a clear error message instead of being incorrectly classified.
+Relax the healthy leaf thresholds so that clearly green, disease-free leaves are classified as "✅ সুস্থ পাতা" instead of falling into "Possibly Diseased".
 
-## Approach
-Use enhanced pixel analysis to compute a "leaf confidence" score based on green dominance, color variance, and texture characteristics. Add a new `'not_leaf'` status to `PredictionResult`.
+## Root Cause
+The current healthy threshold requires `greenRatio > 0.45` AND `totalDiseaseSignal < 0.05`. Many real healthy leaf photos have `greenRatio` between 0.30–0.45 (due to lighting, background, stems) and minor noise in disease signals, causing them to fall into the `possibly_diseased` bucket.
 
 ## Changes
 
-### 1. `src/lib/diseaseData.ts` — Add leaf validation
+### 1. `src/lib/diseaseData.ts` — Relax healthy thresholds
 
-**New status**: Add `'not_leaf'` to the `PredictionResult.status` union type.
+**Healthy detection (lines ~313-322):**
+- Lower green threshold from `0.45` → `0.35`
+- Raise disease signal tolerance from `0.05` → `0.08`
+- Add a green-dominance boost: if `greenRatio >= 0.60`, set minimum confidence to `0.90`
+- Base confidence formula: `0.80 + greenRatio * 0.15` (was `0.85 + greenRatio * 0.1`)
 
-**New function `detectLeaf(features, imageData)`** that computes a leaf confidence score (0-1) based on:
-- Green pixel ratio (dominant signal — leaves are green or yellow-green)
-- Color diversity check (natural leaves have varied green/brown tones, not uniform artificial colors)
-- Edge texture analysis (leaves have organic edges, not sharp geometric ones)
-- Saturation check (leaves have natural saturation, not gray/desaturated)
+**Possibly diseased (lines ~324-335):**
+- Narrow this range: only trigger if `greenRatio` is between `0.20–0.35` (was `0.30`)
+- Keep disease signal threshold at `< 0.10`
+- This prevents healthy leaves from falling into this bucket
 
-**Leaf rejection criteria** — return `status: 'not_leaf'` if:
-- `leafConfidence < 0.70`
-- OR `greenRatio < 0.08` AND `yellowBrownRatio < 0.05` (no plant-like colors at all)
-- OR image is dominated by blues, reds, or grays with no green presence
+**New decision order:**
+```text
+greenRatio >= 0.35 AND diseaseSignal < 0.08  →  Healthy (conf 80-98%)
+greenRatio >= 0.60 AND diseaseSignal < 0.08  →  Healthy (conf 90-98%, boosted)
+greenRatio >= 0.20 AND diseaseSignal < 0.10  →  Possibly Diseased (60-79%)
+diseaseSignal >= 0.06 with clear winner       →  Disease detected
+```
 
-**Insert this check** in `simulatePrediction()` right after blur detection and before the existing foreground check. If not a leaf, return immediately with message: "❌ এটি একটি পাতা নয়। অনুগ্রহ করে একটি পাতার ছবি আপলোড করুন"
+### 2. `src/components/ResultCard.tsx` — Show confidence percentage on healthy card
 
-### 2. `src/components/ResultCard.tsx` — Handle `not_leaf` status
-
-- Add `isNotLeaf` boolean check
-- Show a red/destructive styled card with:
-  - Header: "❌ পাতা সনাক্ত হয়নি"
-  - The rejection message from `uncertainMessage`
-  - Helper tip: "শুধুমাত্র পরিষ্কার পাতার ছবি দিন"
-- Hide confidence bar, predictions, and audio button for this status
-
-### 3. `src/components/ImageUploader.tsx` — Add helper text
-
-- Add subtle helper text below the upload area: "শুধুমাত্র পরিষ্কার পাতার ছবি দিন" so users know before uploading.
+- For healthy status, display "সুস্থ পাতা (XX% নিশ্চিত)" in the card header
+- Ensure no warning messages appear for confident healthy results
 
 ## Files
-- `src/lib/diseaseData.ts` — leaf detection logic, new status
-- `src/components/ResultCard.tsx` — not_leaf UI
-- `src/components/ImageUploader.tsx` — helper text
+- `src/lib/diseaseData.ts` — threshold adjustments
+- `src/components/ResultCard.tsx` — healthy confidence display
 
