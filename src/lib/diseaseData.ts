@@ -7,11 +7,18 @@ export interface DiseaseInfo {
   severity: 'low' | 'medium' | 'high';
 }
 
+export interface TopPrediction {
+  disease: DiseaseInfo;
+  confidence: number;
+}
+
 export interface PredictionResult {
-  status: 'healthy' | 'disease' | 'uncertain';
+  status: 'healthy' | 'disease' | 'uncertain' | 'possibly_diseased';
   disease?: DiseaseInfo;
   confidence: number;
   uncertainMessage?: string;
+  topPredictions?: TopPrediction[];
+  blurScore?: number;
 }
 
 export const HEALTHY_MESSAGE = "এই পাতা সুস্থ। কোনো রোগ নেই।";
@@ -58,7 +65,6 @@ export const crops = [
   { id: "wheat", name_bn: "গম", name_en: "Wheat" },
 ];
 
-// Crop-disease relevance mapping
 const cropDiseaseMap: Record<string, string[]> = {
   rice: ["leaf_blight", "rust", "bacterial_spot"],
   potato: ["leaf_blight", "bacterial_spot", "powdery_mildew"],
@@ -71,7 +77,38 @@ interface ImageFeatures {
   yellowBrownRatio: number;
   whiteRatio: number;
   darkSpotRatio: number;
-  overallHealth: number; // 0-1, higher = healthier
+  overallHealth: number;
+}
+
+function calculateBlurScore(data: Uint8ClampedArray, width: number, height: number): number {
+  // Laplacian variance on grayscale — low value = blurry
+  const gray = new Float32Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    const idx = i * 4;
+    gray[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+  }
+
+  let sum = 0;
+  let sumSq = 0;
+  let count = 0;
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const lap =
+        -4 * gray[y * width + x] +
+        gray[(y - 1) * width + x] +
+        gray[(y + 1) * width + x] +
+        gray[y * width + (x - 1)] +
+        gray[y * width + (x + 1)];
+      sum += lap;
+      sumSq += lap * lap;
+      count++;
+    }
+  }
+
+  const mean = sum / count;
+  const variance = sumSq / count - mean * mean;
+  return variance;
 }
 
 function analyzeImagePixels(imageData: ImageData): ImageFeatures {
@@ -82,50 +119,32 @@ function analyzeImagePixels(imageData: ImageData): ImageFeatures {
   let yellowBrownCount = 0;
   let whiteCount = 0;
   let darkSpotCount = 0;
-  let bgCount = 0; // background pixels to exclude
+  let bgCount = 0;
 
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Skip very bright white/near-white background
-    if (r > 240 && g > 240 && b > 240) {
-      bgCount++;
-      continue;
-    }
-    // Skip very dark background
-    if (r < 15 && g < 15 && b < 15) {
-      bgCount++;
-      continue;
-    }
+    if (r > 240 && g > 240 && b > 240) { bgCount++; continue; }
+    if (r < 15 && g < 15 && b < 15) { bgCount++; continue; }
 
-    // Green dominant: healthy leaf tissue
     if (g > r * 1.1 && g > b * 1.1 && g > 50) {
       greenCount++;
-    }
-    // Yellow/brown: blight, rust indicators
-    else if (r > 100 && g > 60 && g < r * 0.95 && b < r * 0.5) {
+    } else if (r > 100 && g > 60 && g < r * 0.95 && b < r * 0.5) {
       yellowBrownCount++;
-    }
-    // White/light patches: powdery mildew
-    else if (r > 200 && g > 200 && b > 200 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30) {
+    } else if (r > 200 && g > 200 && b > 200 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30) {
       whiteCount++;
-    }
-    // Dark spots: bacterial spot
-    else if (r < 80 && g < 80 && b < 60) {
+    } else if (r < 80 && g < 80 && b < 60) {
       darkSpotCount++;
     }
   }
 
   const foregroundPixels = Math.max(totalPixels - bgCount, 1);
-
   const greenRatio = greenCount / foregroundPixels;
   const yellowBrownRatio = yellowBrownCount / foregroundPixels;
   const whiteRatio = whiteCount / foregroundPixels;
   const darkSpotRatio = darkSpotCount / foregroundPixels;
-
-  // Overall health: high green ratio with low disease indicators = healthy
   const diseaseSignal = yellowBrownRatio * 2 + whiteRatio * 1.5 + darkSpotRatio * 2.5;
   const overallHealth = Math.max(0, Math.min(1, greenRatio - diseaseSignal));
 
@@ -138,18 +157,50 @@ function loadImageToCanvas(imageDataUrl: string): Promise<ImageData> {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      // Resize for performance (max 200px)
-      const scale = Math.min(200 / img.width, 200 / img.height, 1);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
+      canvas.width = 224;
+      canvas.height = 224;
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Canvas not supported"));
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      ctx.drawImage(img, 0, 0, 224, 224);
+      resolve(ctx.getImageData(0, 0, 224, 224));
     };
     img.onerror = () => reject(new Error("Image load failed"));
     img.src = imageDataUrl;
   });
+}
+
+function computeTopPredictions(
+  features: ImageFeatures,
+  selectedCrop?: string
+): TopPrediction[] {
+  const rawScores: { id: string; score: number }[] = [
+    { id: "leaf_blight", score: features.yellowBrownRatio > 0.04 ? features.yellowBrownRatio * 2.5 : 0 },
+    { id: "bacterial_spot", score: features.darkSpotRatio > 0.03 ? features.darkSpotRatio * 3.0 : 0 },
+    { id: "powdery_mildew", score: features.whiteRatio > 0.04 ? features.whiteRatio * 2.0 : 0 },
+    { id: "rust", score: (features.yellowBrownRatio > 0.03 && features.greenRatio > 0.2) ? features.yellowBrownRatio * 2.0 : 0 },
+  ];
+
+  // Crop-aware boost
+  if (selectedCrop && cropDiseaseMap[selectedCrop]) {
+    const relevant = cropDiseaseMap[selectedCrop];
+    rawScores.forEach(s => {
+      if (relevant.includes(s.id) && s.score > 0) s.score *= 1.3;
+    });
+  }
+
+  const totalScore = rawScores.reduce((sum, s) => sum + s.score, 0);
+  if (totalScore === 0) return [];
+
+  const predictions: TopPrediction[] = rawScores
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map(s => ({
+      disease: diseases.find(d => d.id === s.id)!,
+      confidence: Math.round((s.score / totalScore) * 100) / 100,
+    }));
+
+  return predictions;
 }
 
 export async function simulatePrediction(imageDataUrl: string, selectedCrop?: string): Promise<PredictionResult> {
@@ -158,88 +209,86 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
   const imgData = await loadImageToCanvas(imageDataUrl);
   const features = analyzeImagePixels(imgData);
 
-  const totalPixels = imgData.data.length / 4;
-  const bgPixels = totalPixels - (features.greenRatio + features.yellowBrownRatio + features.whiteRatio + features.darkSpotRatio) * totalPixels;
-  const foregroundRatio = 1 - (bgPixels / totalPixels);
+  // Blur detection
+  const blurScore = calculateBlurScore(imgData.data, 224, 224);
+  const BLUR_THRESHOLD = 50;
+  if (blurScore < BLUR_THRESHOLD) {
+    return {
+      status: 'uncertain',
+      confidence: 0.25,
+      blurScore,
+      uncertainMessage: "ছবি ঝাপসা। অনুগ্রহ করে ভালো আলোতে পরিষ্কার ছবি তুলে আবার চেষ্টা করুন।",
+    };
+  }
 
-  // If very little foreground content, image is likely not a clear leaf photo
+  const totalPixels = imgData.data.length / 4;
+  const fgPixels = totalPixels * (features.greenRatio + features.yellowBrownRatio + features.whiteRatio + features.darkSpotRatio);
+  const foregroundRatio = fgPixels / totalPixels;
+
   if (foregroundRatio < 0.15 || features.greenRatio < 0.05) {
     return {
       status: 'uncertain',
       confidence: 0.3,
+      blurScore,
       uncertainMessage: "ছবিতে পাতা স্পষ্টভাবে দেখা যাচ্ছে না। অনুগ্রহ করে একটি পরিষ্কার পাতার ছবি তুলুন।",
     };
   }
 
   const totalDiseaseSignal = features.yellowBrownRatio + features.whiteRatio + features.darkSpotRatio;
+  const topPredictions = computeTopPredictions(features, selectedCrop);
 
-  // Healthy: strong green, weak disease signals
-  if (features.greenRatio > 0.3 && totalDiseaseSignal < 0.1) {
-    const confidence = 0.75 + features.greenRatio * 0.2;
+  // Strict healthy: high green, very low disease, confidence >= 85%
+  if (features.greenRatio > 0.45 && totalDiseaseSignal < 0.05) {
+    const confidence = 0.85 + features.greenRatio * 0.1;
     return {
       status: 'healthy',
       confidence: Math.min(confidence, 0.98),
+      blurScore,
+      topPredictions: topPredictions.length > 0 ? topPredictions : undefined,
     };
   }
 
-  // Also healthy if green dominates disease signals by a large margin
-  if (features.greenRatio > totalDiseaseSignal * 3 && totalDiseaseSignal < 0.15) {
-    const confidence = 0.70 + features.greenRatio * 0.15;
+  // Possibly diseased: green dominant but not confident enough for healthy
+  if (features.greenRatio > 0.30 && totalDiseaseSignal < 0.10) {
+    const confidence = 0.60 + features.greenRatio * 0.15;
     return {
-      status: 'healthy',
-      confidence: Math.min(confidence, 0.95),
+      status: 'possibly_diseased',
+      confidence: Math.min(confidence, 0.84),
+      blurScore,
+      topPredictions: topPredictions.length > 0 ? topPredictions : undefined,
+      uncertainMessage: "⚠️ ফলাফল নিশ্চিত নয়, আবার চেষ্টা করুন। পাতার আক্রান্ত অংশের কাছ থেকে ছবি তুলুন।",
     };
   }
 
-  // Minimum disease signal threshold — below this, result is uncertain
-  const minDiseaseThreshold = 0.06;
-  if (totalDiseaseSignal < minDiseaseThreshold) {
+  // Minimum disease signal threshold
+  if (totalDiseaseSignal < 0.06) {
     return {
       status: 'uncertain',
       confidence: 0.4,
+      blurScore,
       uncertainMessage: "ছবি থেকে রোগ নিশ্চিতভাবে সনাক্ত করা যাচ্ছে না। ভালো আলোতে কাছ থেকে পাতার ছবি তুলে আবার চেষ্টা করুন।",
     };
   }
 
-  // Determine disease by strongest signal — no default fallback
-  const diseaseScores: { id: string; score: number }[] = [
-    { id: "leaf_blight", score: features.yellowBrownRatio > 0.08 ? features.yellowBrownRatio : 0 },
-    { id: "bacterial_spot", score: features.darkSpotRatio > 0.05 ? features.darkSpotRatio : 0 },
-    { id: "powdery_mildew", score: features.whiteRatio > 0.06 ? features.whiteRatio : 0 },
-    { id: "rust", score: (features.yellowBrownRatio > 0.05 && features.greenRatio > 0.25) ? features.yellowBrownRatio * 0.9 : 0 },
-  ];
-
-  // Sort by score descending
-  diseaseScores.sort((a, b) => b.score - a.score);
-
-  // If best score is still 0, uncertain
-  if (diseaseScores[0].score === 0) {
+  // Disease detected — use top prediction
+  if (topPredictions.length === 0) {
     return {
       status: 'uncertain',
       confidence: 0.35,
+      blurScore,
       uncertainMessage: "রোগের ধরন নির্ধারণ করা যাচ্ছে না। পাতার আক্রান্ত অংশের কাছ থেকে ছবি তুলুন।",
     };
   }
 
-  let bestDiseaseId = diseaseScores[0].id;
-
-  // Crop-aware: only prioritize if that disease also has a nonzero score
-  if (selectedCrop && cropDiseaseMap[selectedCrop]) {
-    const relevantDiseases = cropDiseaseMap[selectedCrop];
-    if (!relevantDiseases.includes(bestDiseaseId)) {
-      const cropMatch = diseaseScores.find(d => d.score > 0 && relevantDiseases.includes(d.id));
-      if (cropMatch) bestDiseaseId = cropMatch.id;
-      // If no crop-relevant disease has signal, keep the strongest one
-    }
-  }
-
-  const disease = diseases.find(d => d.id === bestDiseaseId) || diseases[0];
+  const bestDisease = topPredictions[0].disease;
   const confidence = 0.60 + Math.min(totalDiseaseSignal * 2, 0.35);
 
   return {
     status: 'disease',
-    disease,
+    disease: bestDisease,
     confidence: Math.min(confidence, 0.95),
+    blurScore,
+    topPredictions,
   };
 }
 
