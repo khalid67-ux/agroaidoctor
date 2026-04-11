@@ -310,9 +310,13 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
   const totalDiseaseSignal = features.yellowBrownRatio + features.whiteRatio + features.darkSpotRatio;
   const topPredictions = computeTopPredictions(features, selectedCrop);
 
-  // Strict healthy: high green, very low disease, confidence >= 85%
-  if (features.greenRatio > 0.45 && totalDiseaseSignal < 0.05) {
-    const confidence = 0.85 + features.greenRatio * 0.1;
+  // Healthy: good green presence, low disease signal
+  if (features.greenRatio >= 0.35 && totalDiseaseSignal < 0.08) {
+    let confidence = 0.80 + features.greenRatio * 0.15;
+    // Green-dominance boost for very green leaves
+    if (features.greenRatio >= 0.60) {
+      confidence = Math.max(confidence, 0.90);
+    }
     return {
       status: 'healthy',
       confidence: Math.min(confidence, 0.98),
@@ -321,12 +325,12 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
     };
   }
 
-  // Possibly diseased: green dominant but not confident enough for healthy
-  if (features.greenRatio > 0.30 && totalDiseaseSignal < 0.10) {
+  // Possibly diseased: moderate green, not confident enough for healthy
+  if (features.greenRatio >= 0.20 && features.greenRatio < 0.35 && totalDiseaseSignal < 0.10) {
     const confidence = 0.60 + features.greenRatio * 0.15;
     return {
       status: 'possibly_diseased',
-      confidence: Math.min(confidence, 0.84),
+      confidence: Math.min(confidence, 0.79),
       blurScore,
       topPredictions: topPredictions.length > 0 ? topPredictions : undefined,
       uncertainMessage: "⚠️ ফলাফল নিশ্চিত নয়, আবার চেষ্টা করুন। পাতার আক্রান্ত অংশের কাছ থেকে ছবি তুলুন।",
