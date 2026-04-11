@@ -1,55 +1,49 @@
 
 
 ## Goal
-Replace the browser SpeechSynthesis API with a Supabase Edge Function that proxies Google Translate TTS, ensuring Bengali audio works on all devices.
-
-## Why not Python/Flask?
-Lovable is a frontend-only platform — it cannot run a persistent Python server. Instead, we use a **Supabase Edge Function** (serverless, Deno-based) that fetches Bengali audio from Google Translate's TTS endpoint server-side (no CORS issues) and returns the MP3 to the frontend.
-
-## Architecture
-
-```text
-User clicks "বাংলায় শুনুন"
-  → Frontend sends POST to Edge Function with { text: "..." }
-  → Edge Function calls Google Translate TTS (server-side, no CORS)
-  → Returns MP3 audio blob
-  → Frontend plays it via <audio> element
-```
+Improve detection accuracy by raising the healthy threshold, adding a "possibly diseased" state, showing top-2 predictions, adding blur detection, and improving the UI to clearly show uncertain results.
 
 ## Changes
 
-### 1. Create Edge Function `supabase/functions/tts/index.ts`
-- Accepts POST with `{ text: string }`
-- Splits long text into chunks (Google TTS has ~200 char limit per request)
-- Fetches MP3 from `https://translate.google.com/translate_tts?ie=UTF-8&tl=bn&client=tw-ob&q=...` for each chunk
-- Concatenates MP3 buffers and returns as `audio/mpeg`
-- Includes CORS headers
-- Input validation with length limit
+### 1. Update `PredictionResult` interface in `src/lib/diseaseData.ts`
+- Add new status `'possibly_diseased'` to the status union
+- Add `topPredictions` array field: `{ disease: DiseaseInfo; confidence: number }[]`
+- Add `blurScore` optional field for image quality
 
-### 2. Rewrite TTS functions in `src/lib/diseaseData.ts`
-- Remove all SpeechSynthesis code (voice caching, waitForVoices, findBengaliVoice, speakChunk, etc.)
-- New `speakBangla()`: sends text to the edge function, receives MP3 blob, plays via `new Audio(URL.createObjectURL(blob))`
-- New `stopBangla()`: pauses and resets the Audio element
-- Keep `SpeakStatus` type and `StatusCallback` pattern unchanged
-- Add `'loading'` status for while the audio is being fetched
+### 2. Rewrite `simulatePrediction()` in `src/lib/diseaseData.ts`
+
+**Blur detection**: Calculate a Laplacian-like variance on grayscale pixel values. If below threshold, return uncertain with "ছবি ঝাপসা" message.
+
+**Stricter healthy threshold**:
+- Only return `status: 'healthy'` if `greenRatio > 0.45` AND `totalDiseaseSignal < 0.05` AND confidence >= 0.85
+- If green is dominant but confidence < 0.85 (e.g. greenRatio 0.3-0.45 with low disease signal), return `status: 'possibly_diseased'` with message "⚠️ ফলাফল নিশ্চিত নয়"
+
+**Top-2 predictions**: Always compute scores for all 4 diseases, normalize them into percentages, and return the top 2 with nonzero scores in `topPredictions`.
+
+**Canvas resize**: Change from max 200px to fixed 224x224 for consistent analysis.
 
 ### 3. Update `src/components/ResultCard.tsx`
-- Add `'loading'` to the button states — show a spinner/loading text while audio generates
-- Keep existing speaking/stop toggle
-- Remove the "device not supported" error toast (no longer relevant)
-- Update `SpeakStatus` type import
 
-### 4. Enable Lovable Cloud (Supabase)
-- Required for edge function deployment — will set up if not already enabled
+- Handle new `'possibly_diseased'` status with yellow/warning styling and the message "⚠️ সম্ভবত রোগাক্রান্ত — নিশ্চিত নয়"
+- Display `topPredictions` as a ranked list showing disease name + percentage for each
+- Show confidence bar for all states (including uncertain)
+- For `possibly_diseased`: show the warning "⚠️ ফলাফল নিশ্চিত নয়, আবার চেষ্টা করুন" prominently
+- For blurry images: show specific blur warning message
 
-## Why this works
-- Google Translate TTS supports Bengali (`tl=bn`) reliably
-- Server-side fetch avoids CORS blocking
-- No API key needed (uses the public `tw-ob` client parameter)
-- Works on every device since it just plays an MP3 file
+### 4. Update `src/pages/Index.tsx`
+- Update `PredictionResult` type usage (no logic changes needed, just the import)
 
-## Files
-- **New**: `supabase/functions/tts/index.ts`
-- **Edit**: `src/lib/diseaseData.ts` — replace SpeechSynthesis with edge function call
-- **Edit**: `src/components/ResultCard.tsx` — add loading state to button
+## Key thresholds summary
+
+```text
+greenRatio > 0.45 AND diseaseSignal < 0.05  →  Healthy (conf >= 85%)
+greenRatio > 0.30 AND diseaseSignal < 0.10  →  Possibly Diseased (conf 60-84%)
+diseaseSignal >= 0.06 with clear winner      →  Disease detected
+blurVariance < threshold                     →  "ছবি ঝাপসা, পরিষ্কার ছবি তুলুন"
+foreground < 15%                             →  "পাতা দেখা যাচ্ছে না"
+```
+
+## Files to change
+- `src/lib/diseaseData.ts` — prediction logic, types, blur detection, top-2, stricter thresholds
+- `src/components/ResultCard.tsx` — new `possibly_diseased` UI, top predictions list, blur warning
 
