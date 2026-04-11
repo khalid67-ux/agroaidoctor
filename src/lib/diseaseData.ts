@@ -268,6 +268,22 @@ export type SpeakStatus = 'idle' | 'speaking' | 'error';
 type StatusCallback = (status: SpeakStatus) => void;
 
 let isSpeaking = false;
+let cachedBnVoice: SpeechSynthesisVoice | null | undefined = undefined; // undefined = not yet searched
+
+// Pre-warm voices on module load
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  const tryCache = () => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      cachedBnVoice = findBengaliVoice(voices) || null;
+    }
+  };
+  tryCache();
+  window.speechSynthesis.addEventListener('voiceschanged', () => {
+    const voices = window.speechSynthesis.getVoices();
+    cachedBnVoice = findBengaliVoice(voices) || null;
+  });
+}
 
 export function stopBangla() {
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -290,7 +306,7 @@ function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
     const timer = setTimeout(() => {
       window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
       resolve(window.speechSynthesis.getVoices());
-    }, 2000);
+    }, 3000);
   });
 }
 
@@ -331,15 +347,31 @@ export async function speakBangla(text: string, onStatus?: StatusCallback) {
     return;
   }
 
+  // Get Bengali voice: use cache or wait for voices to load
+  let bnVoice: SpeechSynthesisVoice | undefined;
+  if (cachedBnVoice !== undefined) {
+    bnVoice = cachedBnVoice || undefined;
+  } else {
+    const voices = await waitForVoices();
+    bnVoice = findBengaliVoice(voices);
+    cachedBnVoice = bnVoice || null;
+  }
+
+  // If no Bengali voice found, don't speak English — show error
+  if (!bnVoice) {
+    onStatus?.('error');
+    return;
+  }
+
   isSpeaking = true;
   onStatus?.('speaking');
+
+  // Small delay after cancel to clear the queue fully
+  await new Promise(r => setTimeout(r, 100));
 
   const chunks = splitTextToChunks(text);
 
   try {
-    const voices = await waitForVoices();
-    const bnVoice = findBengaliVoice(voices);
-
     for (const chunk of chunks) {
       if (!isSpeaking) return;
       await speakChunk(chunk, bnVoice);
