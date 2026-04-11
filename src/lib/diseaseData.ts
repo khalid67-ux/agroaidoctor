@@ -13,7 +13,7 @@ export interface TopPrediction {
 }
 
 export interface PredictionResult {
-  status: 'healthy' | 'disease' | 'uncertain' | 'possibly_diseased';
+  status: 'healthy' | 'disease' | 'uncertain' | 'possibly_diseased' | 'not_leaf';
   disease?: DiseaseInfo;
   confidence: number;
   uncertainMessage?: string;
@@ -109,6 +109,68 @@ function calculateBlurScore(data: Uint8ClampedArray, width: number, height: numb
   const mean = sum / count;
   const variance = sumSq / count - mean * mean;
   return variance;
+}
+
+function detectLeaf(features: ImageFeatures, imageData: ImageData): number {
+  const data = imageData.data;
+  const totalPixels = data.length / 4;
+
+  // 1. Plant-like color presence (green + yellow-brown)
+  const plantColorRatio = features.greenRatio + features.yellowBrownRatio;
+
+  // Hard reject: no plant colors at all
+  if (features.greenRatio < 0.08 && features.yellowBrownRatio < 0.05) {
+    return 0.15;
+  }
+
+  // 2. Saturation check — leaves have natural saturation, artificial objects are often gray
+  let saturatedCount = 0;
+  let blueRedDominant = 0;
+  for (let i = 0; i < data.length; i += 16) { // sample every 4th pixel for speed
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    if (saturation > 0.2) saturatedCount++;
+    // Count blue/red dominant pixels (non-plant)
+    if (b > r * 1.2 && b > g * 1.2 && b > 80) blueRedDominant++;
+    if (r > g * 1.4 && r > b * 1.4 && r > 100 && g < 80) blueRedDominant++;
+  }
+  const sampledPixels = Math.floor(totalPixels / 4);
+  const saturationRatio = saturatedCount / Math.max(sampledPixels, 1);
+  const blueRedRatio = blueRedDominant / Math.max(sampledPixels, 1);
+
+  // High blue/red dominance = not a leaf
+  if (blueRedRatio > 0.4) {
+    return 0.2;
+  }
+
+  // 3. Compute leaf confidence score
+  let score = 0;
+
+  // Green presence is the strongest signal (0-0.4)
+  score += Math.min(features.greenRatio * 1.0, 0.4);
+
+  // Plant color presence bonus (0-0.25)
+  score += Math.min(plantColorRatio * 0.5, 0.25);
+
+  // Saturation indicates natural colors (0-0.2)
+  score += Math.min(saturationRatio * 0.25, 0.2);
+
+  // Penalize heavy blue/red
+  score -= blueRedRatio * 0.3;
+
+  // Penalize very low color diversity (uniform objects)
+  if (features.greenRatio > 0 && features.yellowBrownRatio === 0 && features.darkSpotRatio === 0) {
+    score -= 0.1; // too uniform, suspicious
+  }
+
+  // Bonus for having both green + brown (typical of real leaves)
+  if (features.greenRatio > 0.1 && features.yellowBrownRatio > 0.02) {
+    score += 0.15;
+  }
+
+  return Math.max(0, Math.min(1, score));
 }
 
 function analyzeImagePixels(imageData: ImageData): ImageFeatures {
@@ -218,6 +280,17 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
       confidence: 0.25,
       blurScore,
       uncertainMessage: "ছবি ঝাপসা। অনুগ্রহ করে ভালো আলোতে পরিষ্কার ছবি তুলে আবার চেষ্টা করুন।",
+    };
+  }
+
+  // Leaf detection gate
+  const leafConfidence = detectLeaf(features, imgData);
+  if (leafConfidence < 0.70) {
+    return {
+      status: 'not_leaf',
+      confidence: leafConfidence,
+      blurScore,
+      uncertainMessage: "❌ এটি একটি পাতা নয়। অনুগ্রহ করে একটি পাতার ছবি আপলোড করুন।",
     };
   }
 
