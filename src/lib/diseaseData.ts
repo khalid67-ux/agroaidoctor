@@ -274,19 +274,41 @@ export function stopBangla() {
   isSpeaking = false;
 }
 
-function speakChunk(text: string): Promise<void> {
+function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+    const onVoicesChanged = () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+      clearTimeout(timer);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+    const timer = setTimeout(() => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+      resolve(window.speechSynthesis.getVoices());
+    }, 2000);
+  });
+}
+
+function findBengaliVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  return voices.find(v =>
+    v.lang.startsWith('bn') ||
+    v.name.toLowerCase().includes('bengali') ||
+    v.name.toLowerCase().includes('bangla') ||
+    v.name.includes('বাংলা')
+  );
+}
+
+function speakChunk(text: string, bnVoice?: SpeechSynthesisVoice): Promise<void> {
   return new Promise((resolve, reject) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'bn-BD';
     utterance.rate = 0.85;
 
-    // Try to find a Bengali voice, but don't require it
-    const voices = window.speechSynthesis.getVoices();
-    const bnVoice = voices.find(v =>
-      v.lang.startsWith('bn') ||
-      v.name.toLowerCase().includes('bengali') ||
-      v.name.toLowerCase().includes('bangla')
-    );
     if (bnVoice) {
       utterance.voice = bnVoice;
       utterance.lang = bnVoice.lang;
@@ -294,7 +316,6 @@ function speakChunk(text: string): Promise<void> {
 
     utterance.onend = () => resolve();
     utterance.onerror = (e) => {
-      // 'canceled' is not a real error
       if (e.error === 'canceled') resolve();
       else reject(e);
     };
@@ -316,9 +337,12 @@ export async function speakBangla(text: string, onStatus?: StatusCallback) {
   const chunks = splitTextToChunks(text);
 
   try {
+    const voices = await waitForVoices();
+    const bnVoice = findBengaliVoice(voices);
+
     for (const chunk of chunks) {
       if (!isSpeaking) return;
-      await speakChunk(chunk);
+      await speakChunk(chunk, bnVoice);
     }
   } catch {
     // speech failed
