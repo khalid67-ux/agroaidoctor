@@ -337,9 +337,12 @@ export async function speakBangla(text: string, onStatus?: StatusCallback) {
   const chunks = splitTextToChunks(text);
 
   try {
+    const voices = await waitForVoices();
+    const bnVoice = findBengaliVoice(voices);
+
     for (const chunk of chunks) {
       if (!isSpeaking) return;
-      await speakChunk(chunk);
+      await speakChunk(chunk, bnVoice);
     }
   } catch {
     // speech failed
