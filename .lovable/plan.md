@@ -1,25 +1,55 @@
 
 
-## Problem
-On laptop, the browser speaks in English/another language first (sometimes saying a "module name") before attempting Bengali. This happens because:
-1. Even with `waitForVoices()`, the 2-second timeout may expire before desktop Chrome loads its cloud Bengali voices
-2. When no Bengali voice is found, setting only `lang = 'bn-BD'` is not enough — the browser falls back to its default English voice
-3. Voices are only loaded when the user clicks "listen", causing a delay on the first click
+## Goal
+Replace the browser SpeechSynthesis API with a Supabase Edge Function that proxies Google Translate TTS, ensuring Bengali audio works on all devices.
 
-## Fix
+## Why not Python/Flask?
+Lovable is a frontend-only platform — it cannot run a persistent Python server. Instead, we use a **Supabase Edge Function** (serverless, Deno-based) that fetches Bengali audio from Google Translate's TTS endpoint server-side (no CORS issues) and returns the MP3 to the frontend.
 
-### Changes to `src/lib/diseaseData.ts`
+## Architecture
 
-1. **Pre-warm voices on module load** — call `speechSynthesis.getVoices()` and listen for `voiceschanged` immediately when the file loads, so voices are already cached by the time the user clicks the button
+```text
+User clicks "বাংলায় শুনুন"
+  → Frontend sends POST to Edge Function with { text: "..." }
+  → Edge Function calls Google Translate TTS (server-side, no CORS)
+  → Returns MP3 audio blob
+  → Frontend plays it via <audio> element
+```
 
-2. **Cache the Bengali voice globally** — store the found Bengali voice in a module-level variable so subsequent calls don't need to wait again
+## Changes
 
-3. **Increase timeout to 3 seconds** on first load, but use cached voice instantly on subsequent calls
+### 1. Create Edge Function `supabase/functions/tts/index.ts`
+- Accepts POST with `{ text: string }`
+- Splits long text into chunks (Google TTS has ~200 char limit per request)
+- Fetches MP3 from `https://translate.google.com/translate_tts?ie=UTF-8&tl=bn&client=tw-ob&q=...` for each chunk
+- Concatenates MP3 buffers and returns as `audio/mpeg`
+- Includes CORS headers
+- Input validation with length limit
 
-4. **If no Bengali voice is found after waiting, do not speak at all** — instead return an error status so the UI can show "এই ডিভাইসে বাংলা ভয়েস নেই" rather than speaking English
+### 2. Rewrite TTS functions in `src/lib/diseaseData.ts`
+- Remove all SpeechSynthesis code (voice caching, waitForVoices, findBengaliVoice, speakChunk, etc.)
+- New `speakBangla()`: sends text to the edge function, receives MP3 blob, plays via `new Audio(URL.createObjectURL(blob))`
+- New `stopBangla()`: pauses and resets the Audio element
+- Keep `SpeakStatus` type and `StatusCallback` pattern unchanged
+- Add `'loading'` status for while the audio is being fetched
 
-5. **Cancel and clear the speech queue before speaking** — call `speechSynthesis.cancel()` and add a small delay before starting new speech to prevent leftover audio from the previous queue bleeding through
+### 3. Update `src/components/ResultCard.tsx`
+- Add `'loading'` to the button states — show a spinner/loading text while audio generates
+- Keep existing speaking/stop toggle
+- Remove the "device not supported" error toast (no longer relevant)
+- Update `SpeakStatus` type import
 
-### Changes to `src/components/ResultCard.tsx`
-- When `speakStatus` is `'error'`, show a toast or inline message in Bangla saying the device does not support Bengali voice, instead of silently speaking English
+### 4. Enable Lovable Cloud (Supabase)
+- Required for edge function deployment — will set up if not already enabled
+
+## Why this works
+- Google Translate TTS supports Bengali (`tl=bn`) reliably
+- Server-side fetch avoids CORS blocking
+- No API key needed (uses the public `tw-ob` client parameter)
+- Works on every device since it just plays an MP3 file
+
+## Files
+- **New**: `supabase/functions/tts/index.ts`
+- **Edit**: `src/lib/diseaseData.ts` — replace SpeechSynthesis with edge function call
+- **Edit**: `src/components/ResultCard.tsx` — add loading state to button
 
