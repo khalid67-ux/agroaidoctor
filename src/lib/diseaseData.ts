@@ -8,9 +8,10 @@ export interface DiseaseInfo {
 }
 
 export interface PredictionResult {
-  status: 'healthy' | 'disease';
+  status: 'healthy' | 'disease' | 'uncertain';
   disease?: DiseaseInfo;
   confidence: number;
+  uncertainMessage?: string;
 }
 
 export const HEALTHY_MESSAGE = "এই পাতা সুস্থ। কোনো রোগ নেই।";
