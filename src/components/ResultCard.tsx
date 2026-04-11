@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { CheckCircle, AlertTriangle, HelpCircle, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { CheckCircle, AlertTriangle, HelpCircle, Volume2, VolumeX, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PredictionResult, HEALTHY_MESSAGE, speakBangla, stopBangla, SpeakStatus } from "@/lib/diseaseData";
 import { toast } from "sonner";
-
 
 interface ResultCardProps {
   result: PredictionResult;
@@ -12,6 +11,8 @@ interface ResultCardProps {
 const ResultCard = ({ result }: ResultCardProps) => {
   const isHealthy = result.status === "healthy";
   const isUncertain = result.status === "uncertain";
+  const isPossiblyDiseased = result.status === "possibly_diseased";
+  const isDiseased = result.status === "disease";
   const confidence = Math.round(result.confidence * 100);
   const [speakStatus, setSpeakStatus] = useState<SpeakStatus>('idle');
 
@@ -25,8 +26,13 @@ const ResultCard = ({ result }: ResultCardProps) => {
     let text = '';
     if (isHealthy) {
       text = HEALTHY_MESSAGE;
-    } else if (isUncertain) {
+    } else if (isUncertain || isPossiblyDiseased) {
       text = result.uncertainMessage || "ছবি থেকে রোগ সনাক্ত করা যায়নি।";
+      if (result.topPredictions && result.topPredictions.length > 0) {
+        text += " সম্ভাব্য রোগ: " + result.topPredictions.map(p =>
+          `${p.disease.name_bn} ${Math.round(p.confidence * 100)} শতাংশ`
+        ).join(", ");
+      }
     } else if (result.disease) {
       text = `রোগের নাম: ${result.disease.name_bn}। সমস্যা: ${result.disease.description_bn}। সমাধান: ${result.disease.solution_bn}`;
     }
@@ -41,27 +47,46 @@ const ResultCard = ({ result }: ResultCardProps) => {
     });
   };
 
+  const getHeaderStyle = () => {
+    if (isHealthy) return "gradient-hero";
+    if (isPossiblyDiseased) return "bg-warning";
+    if (isUncertain) return "bg-muted";
+    return "bg-destructive";
+  };
+
+  const getBorderStyle = () => {
+    if (isHealthy) return "border-success/30 bg-accent";
+    if (isPossiblyDiseased) return "border-warning/30 bg-warning/5";
+    if (isUncertain) return "border-muted-foreground/20 bg-muted/30";
+    return "border-destructive/30 bg-destructive/5";
+  };
+
+  const getHeaderIcon = () => {
+    if (isHealthy) return <CheckCircle className="w-7 h-7 text-primary-foreground" />;
+    if (isPossiblyDiseased) return <ShieldAlert className="w-7 h-7 text-primary-foreground" />;
+    if (isUncertain) return <HelpCircle className="w-7 h-7 text-foreground" />;
+    return <AlertTriangle className="w-7 h-7 text-destructive-foreground" />;
+  };
+
+  const getHeaderText = () => {
+    if (isHealthy) return "সুস্থ পাতা ✅";
+    if (isPossiblyDiseased) return "সম্ভবত রোগাক্রান্ত ⚠️";
+    if (isUncertain) return "ছবি অস্পষ্ট 🔄";
+    return "রোগ সনাক্ত হয়েছে ⚠️";
+  };
+
   return (
-    <div className={`w-full max-w-md mx-auto rounded-xl overflow-hidden shadow-agro border ${
-      isHealthy ? "border-success/30 bg-accent" : isUncertain ? "border-warning/30 bg-warning/5" : "border-destructive/30 bg-destructive/5"
-    }`}>
+    <div className={`w-full max-w-md mx-auto rounded-xl overflow-hidden shadow-agro border ${getBorderStyle()}`}>
       {/* Status header */}
-      <div className={`px-5 py-4 flex items-center gap-3 ${
-        isHealthy ? "gradient-hero" : isUncertain ? "bg-warning" : "bg-destructive"
-      }`}>
-        {isHealthy ? (
-          <CheckCircle className="w-7 h-7 text-primary-foreground" />
-        ) : isUncertain ? (
-          <HelpCircle className="w-7 h-7 text-primary-foreground" />
-        ) : (
-          <AlertTriangle className="w-7 h-7 text-destructive-foreground" />
-        )}
-        <span className={`font-bold text-lg text-primary-foreground`}>
-          {isHealthy ? "সুস্থ পাতা ✅" : isUncertain ? "ছবি অস্পষ্ট 🔄" : "রোগ সনাক্ত হয়েছে ⚠️"}
+      <div className={`px-5 py-4 flex items-center gap-3 ${getHeaderStyle()}`}>
+        {getHeaderIcon()}
+        <span className={`font-bold text-lg ${isUncertain ? "text-foreground" : "text-primary-foreground"}`}>
+          {getHeaderText()}
         </span>
       </div>
 
       <div className="p-5 space-y-4">
+        {/* Confidence bar — show for all except pure uncertain */}
         {!isUncertain && (
           <>
             <div className="flex items-center justify-between">
@@ -70,21 +95,41 @@ const ResultCard = ({ result }: ResultCardProps) => {
             </div>
             <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-700 ${isHealthy ? "bg-success" : "bg-warning"}`}
+                className={`h-full rounded-full transition-all duration-700 ${
+                  isHealthy ? "bg-success" : isPossiblyDiseased ? "bg-warning" : "bg-destructive"
+                }`}
                 style={{ width: `${confidence}%` }}
               />
             </div>
           </>
         )}
 
-        {isHealthy ? (
+        {/* Healthy */}
+        {isHealthy && (
           <p className="text-foreground font-medium text-center py-2">{HEALTHY_MESSAGE}</p>
-        ) : isUncertain ? (
+        )}
+
+        {/* Uncertain */}
+        {isUncertain && (
           <div className="text-center py-3 space-y-2">
             <p className="text-foreground font-medium">{result.uncertainMessage}</p>
             <p className="text-sm text-muted-foreground">💡 টিপস: ভালো আলোতে, কাছ থেকে, শুধু পাতার ছবি তুলুন।</p>
           </div>
-        ) : result.disease ? (
+        )}
+
+        {/* Possibly Diseased */}
+        {isPossiblyDiseased && (
+          <div className="space-y-3">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-center">
+              <p className="text-foreground font-semibold text-sm">
+                {result.uncertainMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Disease detected */}
+        {isDiseased && result.disease && (
           <div className="space-y-3">
             <div>
               <h3 className="font-bold text-foreground text-lg">🦠 {result.disease.name_bn}</h3>
@@ -103,9 +148,27 @@ const ResultCard = ({ result }: ResultCardProps) => {
               <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">{result.disease.solution_bn}</p>
             </div>
           </div>
-        ) : null}
+        )}
 
-        {!isHealthy && !isUncertain && (
+        {/* Top-2 predictions */}
+        {result.topPredictions && result.topPredictions.length > 0 && (
+          <div className="border border-border rounded-lg p-3 space-y-2">
+            <h4 className="font-semibold text-foreground text-sm">📊 সম্ভাব্য রোগ:</h4>
+            {result.topPredictions.map((pred, idx) => (
+              <div key={pred.disease.id} className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {idx + 1}. {pred.disease.name_bn}
+                </span>
+                <span className={`text-sm font-bold ${idx === 0 ? "text-foreground" : "text-muted-foreground"}`}>
+                  {Math.round(pred.confidence * 100)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Disclaimer for disease */}
+        {isDiseased && (
           <p className="text-xs text-muted-foreground text-center italic border-t border-border pt-3">
             ⚠️ এটি একটি প্রাথমিক বিশ্লেষণ। সঠিক রোগ নির্ণয়ের জন্য কৃষি বিশেষজ্ঞের পরামর্শ নিন।
           </p>
