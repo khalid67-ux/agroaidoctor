@@ -1,49 +1,45 @@
 
 
 ## Goal
-Improve detection accuracy by raising the healthy threshold, adding a "possibly diseased" state, showing top-2 predictions, adding blur detection, and improving the UI to clearly show uncertain results.
+Add a leaf detection gate before disease classification. Non-leaf images get rejected with a clear error message instead of being incorrectly classified.
+
+## Approach
+Use enhanced pixel analysis to compute a "leaf confidence" score based on green dominance, color variance, and texture characteristics. Add a new `'not_leaf'` status to `PredictionResult`.
 
 ## Changes
 
-### 1. Update `PredictionResult` interface in `src/lib/diseaseData.ts`
-- Add new status `'possibly_diseased'` to the status union
-- Add `topPredictions` array field: `{ disease: DiseaseInfo; confidence: number }[]`
-- Add `blurScore` optional field for image quality
+### 1. `src/lib/diseaseData.ts` — Add leaf validation
 
-### 2. Rewrite `simulatePrediction()` in `src/lib/diseaseData.ts`
+**New status**: Add `'not_leaf'` to the `PredictionResult.status` union type.
 
-**Blur detection**: Calculate a Laplacian-like variance on grayscale pixel values. If below threshold, return uncertain with "ছবি ঝাপসা" message.
+**New function `detectLeaf(features, imageData)`** that computes a leaf confidence score (0-1) based on:
+- Green pixel ratio (dominant signal — leaves are green or yellow-green)
+- Color diversity check (natural leaves have varied green/brown tones, not uniform artificial colors)
+- Edge texture analysis (leaves have organic edges, not sharp geometric ones)
+- Saturation check (leaves have natural saturation, not gray/desaturated)
 
-**Stricter healthy threshold**:
-- Only return `status: 'healthy'` if `greenRatio > 0.45` AND `totalDiseaseSignal < 0.05` AND confidence >= 0.85
-- If green is dominant but confidence < 0.85 (e.g. greenRatio 0.3-0.45 with low disease signal), return `status: 'possibly_diseased'` with message "⚠️ ফলাফল নিশ্চিত নয়"
+**Leaf rejection criteria** — return `status: 'not_leaf'` if:
+- `leafConfidence < 0.70`
+- OR `greenRatio < 0.08` AND `yellowBrownRatio < 0.05` (no plant-like colors at all)
+- OR image is dominated by blues, reds, or grays with no green presence
 
-**Top-2 predictions**: Always compute scores for all 4 diseases, normalize them into percentages, and return the top 2 with nonzero scores in `topPredictions`.
+**Insert this check** in `simulatePrediction()` right after blur detection and before the existing foreground check. If not a leaf, return immediately with message: "❌ এটি একটি পাতা নয়। অনুগ্রহ করে একটি পাতার ছবি আপলোড করুন"
 
-**Canvas resize**: Change from max 200px to fixed 224x224 for consistent analysis.
+### 2. `src/components/ResultCard.tsx` — Handle `not_leaf` status
 
-### 3. Update `src/components/ResultCard.tsx`
+- Add `isNotLeaf` boolean check
+- Show a red/destructive styled card with:
+  - Header: "❌ পাতা সনাক্ত হয়নি"
+  - The rejection message from `uncertainMessage`
+  - Helper tip: "শুধুমাত্র পরিষ্কার পাতার ছবি দিন"
+- Hide confidence bar, predictions, and audio button for this status
 
-- Handle new `'possibly_diseased'` status with yellow/warning styling and the message "⚠️ সম্ভবত রোগাক্রান্ত — নিশ্চিত নয়"
-- Display `topPredictions` as a ranked list showing disease name + percentage for each
-- Show confidence bar for all states (including uncertain)
-- For `possibly_diseased`: show the warning "⚠️ ফলাফল নিশ্চিত নয়, আবার চেষ্টা করুন" prominently
-- For blurry images: show specific blur warning message
+### 3. `src/components/ImageUploader.tsx` — Add helper text
 
-### 4. Update `src/pages/Index.tsx`
-- Update `PredictionResult` type usage (no logic changes needed, just the import)
+- Add subtle helper text below the upload area: "শুধুমাত্র পরিষ্কার পাতার ছবি দিন" so users know before uploading.
 
-## Key thresholds summary
-
-```text
-greenRatio > 0.45 AND diseaseSignal < 0.05  →  Healthy (conf >= 85%)
-greenRatio > 0.30 AND diseaseSignal < 0.10  →  Possibly Diseased (conf 60-84%)
-diseaseSignal >= 0.06 with clear winner      →  Disease detected
-blurVariance < threshold                     →  "ছবি ঝাপসা, পরিষ্কার ছবি তুলুন"
-foreground < 15%                             →  "পাতা দেখা যাচ্ছে না"
-```
-
-## Files to change
-- `src/lib/diseaseData.ts` — prediction logic, types, blur detection, top-2, stricter thresholds
-- `src/components/ResultCard.tsx` — new `possibly_diseased` UI, top predictions list, blur warning
+## Files
+- `src/lib/diseaseData.ts` — leaf detection logic, new status
+- `src/components/ResultCard.tsx` — not_leaf UI
+- `src/components/ImageUploader.tsx` — helper text
 
