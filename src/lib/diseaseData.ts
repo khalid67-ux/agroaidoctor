@@ -153,49 +153,83 @@ function loadImageToCanvas(imageDataUrl: string): Promise<ImageData> {
 }
 
 export async function simulatePrediction(imageDataUrl: string, selectedCrop?: string): Promise<PredictionResult> {
-  // Small delay for UX
   await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
 
   const imgData = await loadImageToCanvas(imageDataUrl);
   const features = analyzeImagePixels(imgData);
 
-  // Determine if healthy based on visual features
-  const healthThreshold = 0.25; // overallHealth above this = likely healthy
-  const diseaseThreshold = 0.08; // combined disease signals above this = likely diseased
+  const totalPixels = imgData.data.length / 4;
+  const bgPixels = totalPixels - (features.greenRatio + features.yellowBrownRatio + features.whiteRatio + features.darkSpotRatio) * totalPixels;
+  const foregroundRatio = 1 - (bgPixels / totalPixels);
+
+  // If very little foreground content, image is likely not a clear leaf photo
+  if (foregroundRatio < 0.15 || features.greenRatio < 0.05) {
+    return {
+      status: 'uncertain',
+      confidence: 0.3,
+      uncertainMessage: "ছবিতে পাতা স্পষ্টভাবে দেখা যাচ্ছে না। অনুগ্রহ করে একটি পরিষ্কার পাতার ছবি তুলুন।",
+    };
+  }
 
   const totalDiseaseSignal = features.yellowBrownRatio + features.whiteRatio + features.darkSpotRatio;
 
-  if (features.overallHealth > healthThreshold && totalDiseaseSignal < diseaseThreshold) {
-    // Healthy leaf
-    const confidence = 0.75 + features.overallHealth * 0.2;
+  // Healthy: strong green, weak disease signals
+  if (features.greenRatio > 0.3 && totalDiseaseSignal < 0.1) {
+    const confidence = 0.75 + features.greenRatio * 0.2;
     return {
       status: 'healthy',
       confidence: Math.min(confidence, 0.98),
     };
   }
 
-  // Determine which disease based on dominant signal
-  let bestDiseaseId = "leaf_blight";
-  let bestScore = features.yellowBrownRatio;
-
-  if (features.darkSpotRatio > bestScore * 0.8) {
-    bestDiseaseId = "bacterial_spot";
-    bestScore = Math.max(bestScore, features.darkSpotRatio);
-  }
-  if (features.whiteRatio > bestScore * 0.7) {
-    bestDiseaseId = "powdery_mildew";
-    bestScore = Math.max(bestScore, features.whiteRatio);
-  }
-  if (features.yellowBrownRatio > 0.05 && features.greenRatio > 0.3) {
-    // Partial yellowing with green = rust
-    bestDiseaseId = "rust";
+  // Also healthy if green dominates disease signals by a large margin
+  if (features.greenRatio > totalDiseaseSignal * 3 && totalDiseaseSignal < 0.15) {
+    const confidence = 0.70 + features.greenRatio * 0.15;
+    return {
+      status: 'healthy',
+      confidence: Math.min(confidence, 0.95),
+    };
   }
 
-  // Crop-aware adjustment
+  // Minimum disease signal threshold — below this, result is uncertain
+  const minDiseaseThreshold = 0.06;
+  if (totalDiseaseSignal < minDiseaseThreshold) {
+    return {
+      status: 'uncertain',
+      confidence: 0.4,
+      uncertainMessage: "ছবি থেকে রোগ নিশ্চিতভাবে সনাক্ত করা যাচ্ছে না। ভালো আলোতে কাছ থেকে পাতার ছবি তুলে আবার চেষ্টা করুন।",
+    };
+  }
+
+  // Determine disease by strongest signal — no default fallback
+  const diseaseScores: { id: string; score: number }[] = [
+    { id: "leaf_blight", score: features.yellowBrownRatio > 0.08 ? features.yellowBrownRatio : 0 },
+    { id: "bacterial_spot", score: features.darkSpotRatio > 0.05 ? features.darkSpotRatio : 0 },
+    { id: "powdery_mildew", score: features.whiteRatio > 0.06 ? features.whiteRatio : 0 },
+    { id: "rust", score: (features.yellowBrownRatio > 0.05 && features.greenRatio > 0.25) ? features.yellowBrownRatio * 0.9 : 0 },
+  ];
+
+  // Sort by score descending
+  diseaseScores.sort((a, b) => b.score - a.score);
+
+  // If best score is still 0, uncertain
+  if (diseaseScores[0].score === 0) {
+    return {
+      status: 'uncertain',
+      confidence: 0.35,
+      uncertainMessage: "রোগের ধরন নির্ধারণ করা যাচ্ছে না। পাতার আক্রান্ত অংশের কাছ থেকে ছবি তুলুন।",
+    };
+  }
+
+  let bestDiseaseId = diseaseScores[0].id;
+
+  // Crop-aware: only prioritize if that disease also has a nonzero score
   if (selectedCrop && cropDiseaseMap[selectedCrop]) {
     const relevantDiseases = cropDiseaseMap[selectedCrop];
     if (!relevantDiseases.includes(bestDiseaseId)) {
-      bestDiseaseId = relevantDiseases[0];
+      const cropMatch = diseaseScores.find(d => d.score > 0 && relevantDiseases.includes(d.id));
+      if (cropMatch) bestDiseaseId = cropMatch.id;
+      // If no crop-relevant disease has signal, keep the strongest one
     }
   }
 
