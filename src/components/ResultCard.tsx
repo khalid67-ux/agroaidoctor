@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle, AlertTriangle, HelpCircle, Volume2, VolumeX } from "lucide-react";
+import { CheckCircle, AlertTriangle, HelpCircle, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PredictionResult, HEALTHY_MESSAGE, speakBangla, stopBangla, SpeakStatus } from "@/lib/diseaseData";
 import { toast } from "sonner";
