@@ -243,143 +243,70 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
   };
 }
 
-function splitTextToChunks(text: string, maxLen = 200): string[] {
-  const cleaned = text.replace(/\n/g, '। ').replace(/\s+/g, ' ').trim();
-  if (cleaned.length <= maxLen) return [cleaned];
-
-  const chunks: string[] = [];
-  let remaining = cleaned;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= maxLen) {
-      chunks.push(remaining);
-      break;
-    }
-    let splitAt = remaining.lastIndexOf('।', maxLen);
-    if (splitAt < 20) splitAt = remaining.lastIndexOf(' ', maxLen);
-    if (splitAt < 20) splitAt = maxLen;
-    chunks.push(remaining.slice(0, splitAt + 1).trim());
-    remaining = remaining.slice(splitAt + 1).trim();
-  }
-
-  return chunks.filter(c => c.length > 0);
-}
-export type SpeakStatus = 'idle' | 'speaking' | 'error';
+export type SpeakStatus = 'idle' | 'loading' | 'speaking' | 'error';
 type StatusCallback = (status: SpeakStatus) => void;
 
-let isSpeaking = false;
-let cachedBnVoice: SpeechSynthesisVoice | null | undefined = undefined; // undefined = not yet searched
-
-// Pre-warm voices on module load
-if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  const tryCache = () => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      cachedBnVoice = findBengaliVoice(voices) || null;
-    }
-  };
-  tryCache();
-  window.speechSynthesis.addEventListener('voiceschanged', () => {
-    const voices = window.speechSynthesis.getVoices();
-    cachedBnVoice = findBengaliVoice(voices) || null;
-  });
-}
+let currentAudio: HTMLAudioElement | null = null;
+let currentObjectUrl: string | null = null;
 
 export function stopBangla() {
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  isSpeaking = false;
-}
-
-function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
-  return new Promise((resolve) => {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      resolve(voices);
-      return;
-    }
-    const onVoicesChanged = () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-      clearTimeout(timer);
-      resolve(window.speechSynthesis.getVoices());
-    };
-    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-    const timer = setTimeout(() => {
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-      resolve(window.speechSynthesis.getVoices());
-    }, 3000);
-  });
-}
-
-function findBengaliVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  return voices.find(v =>
-    v.lang.startsWith('bn') ||
-    v.name.toLowerCase().includes('bengali') ||
-    v.name.toLowerCase().includes('bangla') ||
-    v.name.includes('বাংলা')
-  );
-}
-
-function speakChunk(text: string, bnVoice?: SpeechSynthesisVoice): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'bn-BD';
-    utterance.rate = 0.85;
-
-    if (bnVoice) {
-      utterance.voice = bnVoice;
-      utterance.lang = bnVoice.lang;
-    }
-
-    utterance.onend = () => resolve();
-    utterance.onerror = (e) => {
-      if (e.error === 'canceled') resolve();
-      else reject(e);
-    };
-    window.speechSynthesis.speak(utterance);
-  });
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = null;
+  }
 }
 
 export async function speakBangla(text: string, onStatus?: StatusCallback) {
   stopBangla();
-
-  if (!('speechSynthesis' in window)) {
-    onStatus?.('error');
-    return;
-  }
-
-  // Get Bengali voice: use cache or wait for voices to load
-  let bnVoice: SpeechSynthesisVoice | undefined;
-  if (cachedBnVoice !== undefined) {
-    bnVoice = cachedBnVoice || undefined;
-  } else {
-    const voices = await waitForVoices();
-    bnVoice = findBengaliVoice(voices);
-    cachedBnVoice = bnVoice || null;
-  }
-
-  // If no Bengali voice found, don't speak English — show error
-  if (!bnVoice) {
-    onStatus?.('error');
-    return;
-  }
-
-  isSpeaking = true;
-  onStatus?.('speaking');
-
-  // Small delay after cancel to clear the queue fully
-  await new Promise(r => setTimeout(r, 100));
-
-  const chunks = splitTextToChunks(text);
+  onStatus?.('loading');
 
   try {
-    for (const chunk of chunks) {
-      if (!isSpeaking) return;
-      await speakChunk(chunk, bnVoice);
-    }
-  } catch {
-    // speech failed
-  }
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const url = `https://${projectId}.supabase.co/functions/v1/tts`;
 
-  isSpeaking = false;
-  onStatus?.('idle');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'apikey': apiKey,
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      console.error('TTS failed:', response.status);
+      onStatus?.('error');
+      return;
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    currentObjectUrl = objectUrl;
+
+    const audio = new Audio(objectUrl);
+    currentAudio = audio;
+
+    audio.onplay = () => onStatus?.('speaking');
+    audio.onended = () => {
+      stopBangla();
+      onStatus?.('idle');
+    };
+    audio.onerror = () => {
+      stopBangla();
+      onStatus?.('error');
+    };
+
+    await audio.play();
+  } catch (err) {
+    console.error('TTS error:', err);
+    stopBangla();
+    onStatus?.('error');
+  }
 }
