@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PredictionResult, HEALTHY_MESSAGE, speakBangla, stopBangla, SpeakStatus } from "@/lib/diseaseData";
 import { toast } from "sonner";
 
+
 interface ResultCardProps {
   result: PredictionResult;
 }
@@ -34,6 +35,9 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
     speakBangla(text, (status) => {
       setSpeakStatus(status);
+      if (status === 'error') {
+        toast.error("এই ডিভাইসে বাংলা ভয়েস সাপোর্ট নেই। অনুগ্রহ করে মোবাইলে চেষ্টা করুন।");
+      }
     });
   };
 
