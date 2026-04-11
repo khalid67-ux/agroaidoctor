@@ -1,22 +1,25 @@
 
 
 ## Problem
-On laptop/desktop, `window.speechSynthesis.getVoices()` often returns an empty array on the first call because voices load asynchronously. Without a Bengali voice explicitly set, the browser defaults to English. On mobile (Android Chrome), Bengali cloud voices load faster or the OS has them built-in, so it works.
+On laptop, the browser speaks in English/another language first (sometimes saying a "module name") before attempting Bengali. This happens because:
+1. Even with `waitForVoices()`, the 2-second timeout may expire before desktop Chrome loads its cloud Bengali voices
+2. When no Bengali voice is found, setting only `lang = 'bn-BD'` is not enough — the browser falls back to its default English voice
+3. Voices are only loaded when the user clicks "listen", causing a delay on the first click
 
 ## Fix
-Wait for voices to load before speaking, and ensure the Bengali voice is set properly on desktop browsers.
 
 ### Changes to `src/lib/diseaseData.ts`
 
-1. **Add a `waitForVoices()` helper** that returns a Promise resolving when `getVoices()` is populated (using the `voiceschanged` event with a timeout fallback of ~2 seconds).
+1. **Pre-warm voices on module load** — call `speechSynthesis.getVoices()` and listen for `voiceschanged` immediately when the file loads, so voices are already cached by the time the user clicks the button
 
-2. **Update `speakChunk()`** to call `waitForVoices()` first, then search for a Bengali voice. This ensures desktop Chrome/Edge have time to load their network-based Bengali voices before the utterance is created.
+2. **Cache the Bengali voice globally** — store the found Bengali voice in a module-level variable so subsequent calls don't need to wait again
 
-3. **Force `utterance.voice`** to the Bengali voice when found. If no Bengali voice is found after waiting, still set `lang = 'bn-BD'` and attempt to speak (some browsers handle it).
+3. **Increase timeout to 3 seconds** on first load, but use cached voice instantly on subsequent calls
 
-### No other files need changes
-`ResultCard.tsx` already handles the speaking/stop toggle correctly.
+4. **If no Bengali voice is found after waiting, do not speak at all** — instead return an error status so the UI can show "এই ডিভাইসে বাংলা ভয়েস নেই" rather than speaking English
 
-### Why this fixes it
-Desktop Chrome loads voices asynchronously via the `voiceschanged` event. The current code calls `getVoices()` synchronously, gets an empty list, sets no voice, and the browser picks its default English voice. By waiting for voices to load, we get access to Chrome's cloud Bengali voice (`Google বাংলা`) and can set it explicitly.
+5. **Cancel and clear the speech queue before speaking** — call `speechSynthesis.cancel()` and add a small delay before starting new speech to prevent leftover audio from the previous queue bleeding through
+
+### Changes to `src/components/ResultCard.tsx`
+- When `speakStatus` is `'error'`, show a toast or inline message in Bangla saying the device does not support Bengali voice, instead of silently speaking English
 
