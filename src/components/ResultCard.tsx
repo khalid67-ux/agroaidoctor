@@ -73,7 +73,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
   };
 
   const getHeaderText = () => {
-    if (isHealthy) return "সুস্থ পাতা ✅";
+    if (isHealthy) return `সুস্থ পাতা (${confidence}% নিশ্চিত) ✅`;
     if (isNotLeaf) return "❌ পাতা সনাক্ত হয়নি";
     if (isPossiblyDiseased) return "সম্ভবত রোগাক্রান্ত ⚠️";
     if (isUncertain) return "ছবি অস্পষ্ট 🔄";
