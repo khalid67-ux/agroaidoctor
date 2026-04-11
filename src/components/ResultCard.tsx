@@ -16,7 +16,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
   const [speakStatus, setSpeakStatus] = useState<SpeakStatus>('idle');
 
   const handleSpeak = () => {
-    if (speakStatus === 'speaking') {
+    if (speakStatus === 'speaking' || speakStatus === 'loading') {
       stopBangla();
       setSpeakStatus('idle');
       return;
@@ -36,7 +36,7 @@ const ResultCard = ({ result }: ResultCardProps) => {
     speakBangla(text, (status) => {
       setSpeakStatus(status);
       if (status === 'error') {
-        toast.error("এই ডিভাইসে বাংলা ভয়েস সাপোর্ট নেই। অনুগ্রহ করে মোবাইলে চেষ্টা করুন।");
+        toast.error("অডিও তৈরি করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
       }
     });
   };
@@ -114,9 +114,15 @@ const ResultCard = ({ result }: ResultCardProps) => {
         {/* Audio button */}
         <Button
           onClick={handleSpeak}
+          disabled={speakStatus === 'loading'}
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-base py-5"
         >
-          {speakStatus === 'speaking' ? (
+          {speakStatus === 'loading' ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ⏳ অডিও তৈরি হচ্ছে...
+            </>
+          ) : speakStatus === 'speaking' ? (
             <>
               <VolumeX className="w-5 h-5 mr-2" />
               🔇 থামান
