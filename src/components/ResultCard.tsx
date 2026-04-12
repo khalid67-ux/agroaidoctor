@@ -6,9 +6,10 @@ import { toast } from "sonner";
 
 interface ResultCardProps {
   result: PredictionResult;
+  compact?: boolean;
 }
 
-const ResultCard = ({ result }: ResultCardProps) => {
+const ResultCard = ({ result, compact }: ResultCardProps) => {
   const isHealthy = result.status === "healthy";
   const isUncertain = result.status === "uncertain";
   const isPossiblyDiseased = result.status === "possibly_diseased";
@@ -65,11 +66,11 @@ const ResultCard = ({ result }: ResultCardProps) => {
   };
 
   const getHeaderIcon = () => {
-    if (isHealthy) return <CheckCircle className="w-7 h-7 text-primary-foreground" />;
-    if (isNotLeaf) return <AlertTriangle className="w-7 h-7 text-destructive-foreground" />;
-    if (isPossiblyDiseased) return <ShieldAlert className="w-7 h-7 text-primary-foreground" />;
-    if (isUncertain) return <HelpCircle className="w-7 h-7 text-foreground" />;
-    return <AlertTriangle className="w-7 h-7 text-destructive-foreground" />;
+    if (isHealthy) return <CheckCircle className="w-6 h-6 text-primary-foreground" />;
+    if (isNotLeaf) return <AlertTriangle className="w-6 h-6 text-destructive-foreground" />;
+    if (isPossiblyDiseased) return <ShieldAlert className="w-6 h-6 text-primary-foreground" />;
+    if (isUncertain) return <HelpCircle className="w-6 h-6 text-foreground" />;
+    return <AlertTriangle className="w-6 h-6 text-destructive-foreground" />;
   };
 
   const getHeaderText = () => {
@@ -80,35 +81,39 @@ const ResultCard = ({ result }: ResultCardProps) => {
     return "রোগ সনাক্ত হয়েছে ⚠️";
   };
 
+  const p = compact ? "p-3" : "p-5";
+  const sp = compact ? "space-y-2" : "space-y-4";
+  const hp = compact ? "px-4 py-2" : "px-5 py-4";
+
   return (
-    <div className={`w-full max-w-md mx-auto rounded-xl overflow-hidden shadow-agro border ${getBorderStyle()}`}>
+    <div className={`w-full ${compact ? "" : "max-w-md"} mx-auto rounded-xl overflow-hidden shadow-agro border ${getBorderStyle()} flex flex-col`}>
       {/* Status header */}
-      <div className={`px-5 py-4 flex items-center gap-3 ${getHeaderStyle()}`}>
+      <div className={`${hp} flex items-center gap-3 ${getHeaderStyle()}`}>
         {getHeaderIcon()}
-        <span className={`font-bold text-lg ${isUncertain ? "text-foreground" : "text-primary-foreground"}`}>
+        <span className={`font-bold ${compact ? "text-base" : "text-lg"} ${isUncertain ? "text-foreground" : "text-primary-foreground"}`}>
           {getHeaderText()}
         </span>
       </div>
 
-      <div className="p-5 space-y-4">
+      <div className={`${p} ${sp} flex-1`}>
         {/* Not a leaf */}
         {isNotLeaf && (
-          <div className="text-center py-3 space-y-3">
-            <p className="text-foreground font-medium">{result.uncertainMessage}</p>
-            <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-              💡 শুধুমাত্র পরিষ্কার পাতার ছবি দিন। পাতা ছাড়া অন্য কিছু আপলোড করলে সঠিক ফলাফল পাওয়া যাবে না।
+          <div className="text-center py-2 space-y-2">
+            <p className="text-foreground font-medium text-sm">{result.uncertainMessage}</p>
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-2">
+              💡 শুধুমাত্র পরিষ্কার পাতার ছবি দিন।
             </p>
           </div>
         )}
 
-        {/* Confidence bar — show for all except uncertain and not_leaf */}
+        {/* Confidence bar */}
         {!isUncertain && !isNotLeaf && (
           <>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">নির্ভুলতা</span>
-              <span className="text-2xl font-extrabold text-foreground">{confidence}%</span>
+              <span className={`${compact ? "text-xl" : "text-2xl"} font-extrabold text-foreground`}>{confidence}%</span>
             </div>
-            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+            <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-700 ${
                   isHealthy ? "bg-success" : isPossiblyDiseased ? "bg-warning" : "bg-destructive"
@@ -121,33 +126,29 @@ const ResultCard = ({ result }: ResultCardProps) => {
 
         {/* Healthy */}
         {isHealthy && (
-          <p className="text-foreground font-medium text-center py-2">{HEALTHY_MESSAGE}</p>
+          <p className="text-foreground font-medium text-center text-sm py-1">{HEALTHY_MESSAGE}</p>
         )}
 
         {/* Uncertain */}
         {isUncertain && (
-          <div className="text-center py-3 space-y-2">
-            <p className="text-foreground font-medium">{result.uncertainMessage}</p>
-            <p className="text-sm text-muted-foreground">💡 টিপস: ভালো আলোতে, কাছ থেকে, শুধু পাতার ছবি তুলুন।</p>
+          <div className="text-center py-2 space-y-1">
+            <p className="text-foreground font-medium text-sm">{result.uncertainMessage}</p>
+            <p className="text-xs text-muted-foreground">💡 ভালো আলোতে, কাছ থেকে, শুধু পাতার ছবি তুলুন।</p>
           </div>
         )}
 
         {/* Possibly Diseased */}
         {isPossiblyDiseased && (
-          <div className="space-y-3">
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-center">
-              <p className="text-foreground font-semibold text-sm">
-                {result.uncertainMessage}
-              </p>
-            </div>
+          <div className="bg-warning/10 border border-warning/30 rounded-lg p-2 text-center">
+            <p className="text-foreground font-semibold text-xs">{result.uncertainMessage}</p>
           </div>
         )}
 
         {/* Disease detected */}
         {isDiseased && result.disease && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div>
-              <h3 className="font-bold text-foreground text-lg">🦠 {result.disease.name_bn}</h3>
+              <h3 className="font-bold text-foreground text-base">🦠 {result.disease.name_bn}</h3>
               <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mt-1 ${
                 result.disease.severity === 'high' ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-secondary-foreground"
               }`}>
@@ -155,26 +156,24 @@ const ResultCard = ({ result }: ResultCardProps) => {
               </span>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground text-sm mb-1">📋 বিস্তারিত বর্ণনা:</h4>
-              <p className="text-muted-foreground text-sm leading-relaxed">{result.disease.description_bn}</p>
+              <h4 className="font-semibold text-foreground text-xs mb-1">📋 বিস্তারিত:</h4>
+              <p className="text-muted-foreground text-xs leading-relaxed">{result.disease.description_bn}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground text-sm mb-1">💊 সমাধান:</h4>
-              <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">{result.disease.solution_bn}</p>
+              <h4 className="font-semibold text-foreground text-xs mb-1">💊 সমাধান:</h4>
+              <p className="text-muted-foreground text-xs leading-relaxed whitespace-pre-line">{result.disease.solution_bn}</p>
             </div>
           </div>
         )}
 
         {/* Top-2 predictions */}
         {result.topPredictions && result.topPredictions.length > 0 && (
-          <div className="border border-border rounded-lg p-3 space-y-2">
-            <h4 className="font-semibold text-foreground text-sm">📊 সম্ভাব্য রোগ:</h4>
+          <div className="border border-border rounded-lg p-2 space-y-1">
+            <h4 className="font-semibold text-foreground text-xs">📊 সম্ভাব্য রোগ:</h4>
             {result.topPredictions.map((pred, idx) => (
               <div key={pred.disease.id} className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {idx + 1}. {pred.disease.name_bn}
-                </span>
-                <span className={`text-sm font-bold ${idx === 0 ? "text-foreground" : "text-muted-foreground"}`}>
+                <span className="text-xs text-muted-foreground">{idx + 1}. {pred.disease.name_bn}</span>
+                <span className={`text-xs font-bold ${idx === 0 ? "text-foreground" : "text-muted-foreground"}`}>
                   {Math.round(pred.confidence * 100)}%
                 </span>
               </div>
@@ -182,36 +181,29 @@ const ResultCard = ({ result }: ResultCardProps) => {
           </div>
         )}
 
-        {/* Disclaimer for disease */}
+        {/* Disclaimer */}
         {isDiseased && (
-          <p className="text-xs text-muted-foreground text-center italic border-t border-border pt-3">
-            ⚠️ এটি একটি প্রাথমিক বিশ্লেষণ। সঠিক রোগ নির্ণয়ের জন্য কৃষি বিশেষজ্ঞের পরামর্শ নিন।
+          <p className="text-xs text-muted-foreground text-center italic border-t border-border pt-2">
+            ⚠️ প্রাথমিক বিশ্লেষণ। কৃষি বিশেষজ্ঞের পরামর্শ নিন।
           </p>
         )}
 
-        {/* Audio button — hide for not_leaf */}
-        {!isNotLeaf && <Button
-          onClick={handleSpeak}
-          disabled={speakStatus === 'loading'}
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-base py-5"
-        >
-          {speakStatus === 'loading' ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              ⏳ অডিও তৈরি হচ্ছে...
-            </>
-          ) : speakStatus === 'speaking' ? (
-            <>
-              <VolumeX className="w-5 h-5 mr-2" />
-              🔇 থামান
-            </>
-          ) : (
-            <>
-              <Volume2 className="w-5 h-5 mr-2" />
-              🔊 বাংলায় শুনুন
-            </>
-          )}
-        </Button>}
+        {/* Audio button */}
+        {!isNotLeaf && (
+          <Button
+            onClick={handleSpeak}
+            disabled={speakStatus === 'loading'}
+            className={`w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm ${compact ? "py-3" : "py-5"}`}
+          >
+            {speakStatus === 'loading' ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> ⏳ অডিও তৈরি হচ্ছে...</>
+            ) : speakStatus === 'speaking' ? (
+              <><VolumeX className="w-4 h-4 mr-2" /> 🔇 থামান</>
+            ) : (
+              <><Volume2 className="w-4 h-4 mr-2" /> 🔊 বাংলায় শুনুন</>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );
