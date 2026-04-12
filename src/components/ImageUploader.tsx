@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 interface ImageUploaderProps {
   onImageSelect: (file: File, preview: string) => void;
   preview: string | null;
+  compact?: boolean;
 }
 
-const ImageUploader = ({ onImageSelect, preview }: ImageUploaderProps) => {
+const ImageUploader = ({ onImageSelect, preview, compact }: ImageUploaderProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -28,9 +29,9 @@ const ImageUploader = ({ onImageSelect, preview }: ImageUploaderProps) => {
   }, [handleFile]);
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className={`w-full ${compact ? "" : "max-w-md"} mx-auto`}>
       <div
-        className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+        className={`relative border-2 border-dashed rounded-xl ${compact ? "p-4" : "p-8"} text-center transition-all cursor-pointer ${
           dragOver ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/50"
         }`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -39,7 +40,7 @@ const ImageUploader = ({ onImageSelect, preview }: ImageUploaderProps) => {
         onClick={() => inputRef.current?.click()}
       >
         {preview ? (
-          <img src={preview} alt="আপলোড করা পাতার ছবি" className="w-full max-h-64 object-contain rounded-lg mx-auto" />
+          <img src={preview} alt="আপলোড করা পাতার ছবি" className={`w-full ${compact ? "max-h-40" : "max-h-64"} object-contain rounded-lg mx-auto`} />
         ) : (
           <div className="flex flex-col items-center gap-3 py-4">
             <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center">

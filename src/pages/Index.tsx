@@ -48,10 +48,9 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <Header />
+      <Header compact={hasSideLayout} />
 
       {!hasSideLayout ? (
-        /* === Default centered layout (before upload) === */
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
             <ImageUploader onImageSelect={handleImageSelect} preview={preview} />
@@ -75,51 +74,39 @@ const Index = () => {
           </div>
         </main>
       ) : (
-        /* === Side-by-side layout (after upload) === */
-        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-4 py-4 overflow-hidden transition-all duration-300">
-          {/* Left column: controls */}
-          <div className="flex flex-col space-y-4 overflow-y-auto min-h-0">
-            <ImageUploader onImageSelect={handleImageSelect} preview={preview} />
+        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-2 overflow-hidden">
+          {/* Left column */}
+          <div className="flex flex-col space-y-3 overflow-hidden">
+            <ImageUploader onImageSelect={handleImageSelect} preview={preview} compact />
             <CropSelector value={crop} onChange={setCrop} />
 
-            <div className="flex justify-center">
-              <Button
-                onClick={handleDetect}
-                disabled={!preview || loading}
-                className="w-full max-w-md bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg py-5 shadow-agro disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    বিশ্লেষণ চলছে...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-5 h-5 mr-2" />
-                    🔍 রোগ নির্ণয় করুন
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button
+              onClick={handleDetect}
+              disabled={!preview || loading}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-base py-3 shadow-agro disabled:opacity-50"
+            >
+              {loading ? (
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> বিশ্লেষণ চলছে...</>
+              ) : (
+                <><Search className="w-5 h-5 mr-2" /> 🔍 রোগ নির্ণয় করুন</>
+              )}
+            </Button>
 
             {result && (
-              <div className="flex justify-center">
-                <Button variant="outline" onClick={handleReset} className="font-semibold border-primary text-primary hover:bg-accent">
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  🔄 আরেকটি ছবি পরীক্ষা করুন
-                </Button>
-              </div>
+              <Button variant="outline" onClick={handleReset} className="w-full font-semibold border-primary text-primary hover:bg-accent text-sm py-2">
+                <RotateCcw className="w-4 h-4 mr-2" /> 🔄 আরেকটি ছবি পরীক্ষা করুন
+              </Button>
             )}
           </div>
 
-          {/* Right column: results */}
-          <div className="flex flex-col space-y-4 overflow-y-auto min-h-0">
+          {/* Right column */}
+          <div className="flex flex-col justify-between overflow-hidden">
             {error && (
-              <p className="text-center text-destructive font-medium">{error}</p>
+              <p className="text-center text-destructive font-medium text-sm">{error}</p>
             )}
 
             {result ? (
-              <ResultCard result={result} />
+              <ResultCard result={result} compact />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-muted-foreground text-center text-sm">
@@ -128,9 +115,8 @@ const Index = () => {
               </div>
             )}
 
-            <footer className="text-center text-xs text-muted-foreground pt-2 pb-2">
-              <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি</p>
-              <p className="mt-1">অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
+            <footer className="text-center text-xs text-muted-foreground py-1">
+              <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি | অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
             </footer>
           </div>
         </main>
