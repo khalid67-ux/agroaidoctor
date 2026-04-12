@@ -54,9 +54,20 @@
     @apply border-border;
   }
 
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-bangla);
+  }
+
+  @media (max-width: 767px) {
+    html, body {
+      overflow: auto;
+    }
   }
 }
 

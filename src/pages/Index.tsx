@@ -51,8 +51,8 @@ const Index = () => {
       <Header compact={hasSideLayout} />
 
       {!hasSideLayout ? (
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
+        <main className="flex-1 flex items-center justify-center overflow-hidden">
+          <div className="max-w-lg mx-auto px-4 py-3 space-y-4">
             <ImageUploader onImageSelect={handleImageSelect} preview={preview} />
             <CropSelector value={crop} onChange={setCrop} />
 
@@ -60,14 +60,14 @@ const Index = () => {
               <Button
                 onClick={handleDetect}
                 disabled={!preview || loading}
-                className="w-full max-w-md bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg py-6 shadow-agro disabled:opacity-50"
+                className="w-full max-w-md bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-lg py-4 shadow-agro disabled:opacity-50"
               >
                 <Search className="w-5 h-5 mr-2" />
                 🔍 রোগ নির্ণয় করুন
               </Button>
             </div>
 
-            <footer className="text-center text-xs text-muted-foreground pt-8 pb-4">
+            <footer className="text-center text-xs text-muted-foreground pt-4 pb-2">
               <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি</p>
               <p className="mt-1">অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
             </footer>

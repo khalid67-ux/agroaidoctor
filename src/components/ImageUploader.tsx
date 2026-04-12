@@ -31,7 +31,7 @@ const ImageUploader = ({ onImageSelect, preview, compact }: ImageUploaderProps) 
   return (
     <div className={`w-full ${compact ? "" : "max-w-md"} mx-auto`}>
       <div
-        className={`relative border-2 border-dashed rounded-xl ${compact ? "p-4" : "p-8"} text-center transition-all cursor-pointer ${
+        className={`relative border-2 border-dashed rounded-xl ${compact ? "p-4" : "p-5"} text-center transition-all cursor-pointer ${
           dragOver ? "border-primary bg-accent" : "border-border bg-card hover:border-primary/50"
         }`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -42,11 +42,11 @@ const ImageUploader = ({ onImageSelect, preview, compact }: ImageUploaderProps) 
         {preview ? (
           <img src={preview} alt="আপলোড করা পাতার ছবি" className={`w-full ${compact ? "max-h-40" : "max-h-64"} object-contain rounded-lg mx-auto`} />
         ) : (
-          <div className="flex flex-col items-center gap-3 py-4">
-            <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center">
-              <Upload className="w-8 h-8 text-primary" />
+          <div className="flex flex-col items-center gap-2 py-2">
+            <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
+              <Upload className="w-6 h-6 text-primary" />
             </div>
-            <p className="text-foreground font-semibold text-lg">পাতার ছবি আপলোড করুন</p>
+            <p className="text-foreground font-semibold text-base">পাতার ছবি আপলোড করুন</p>
             <p className="text-muted-foreground text-sm">JPG বা PNG ফাইল টানুন অথবা ক্লিক করুন</p>
             <p className="text-muted-foreground text-xs mt-1">🌿 শুধুমাত্র পরিষ্কার পাতার ছবি দিন</p>
           </div>
