@@ -1,41 +1,40 @@
 
 
 ## Goal
-Fix the side-by-side layout so both columns fit within the viewport without any scrolling, with the audio button always visible.
+Make the default homepage (before image upload) fit entirely within the viewport on desktop with zero scrolling, while preserving the existing design style. Mobile remains scrollable.
 
 ## Changes
 
-### 1. `src/components/Header.tsx` — Compact header in side layout
-- Accept an optional `compact` prop
-- When compact: reduce `py-6` to `py-2`, hide subtitle, shrink icon/title size
-- This saves ~40px of vertical space
+### 1. `src/index.css` — Lock html/body height
+- Add `html, body { height: 100%; overflow: hidden; }` inside `@layer base`
+- Add a mobile override: `@media (max-width: 767px) { html, body { overflow: auto; } }`
 
-### 2. `src/pages/Index.tsx` — No-scroll two-column layout
-- Pass `compact` to Header when `hasSideLayout`
-- Remove `overflow-y-auto` and `min-h-0` from both columns
-- Add `overflow-hidden` to both columns so nothing scrolls
-- Reduce gap and padding: `gap-3 px-3 py-2`
-- Reduce button padding from `py-5` to `py-3`
-- Right column: use `flex flex-col h-full justify-between` so ResultCard and footer fill space without overflow
+### 2. `src/components/Header.tsx` — More compact default header
+- Reduce default padding from `py-6` to `py-3`
+- Reduce title size from `text-3xl md:text-4xl` to `text-2xl md:text-3xl`
+- Reduce icon from `w-10 h-10` to `w-8 h-8`
+- Reduce subtitle text size from `text-sm md:text-base` to `text-xs md:text-sm`
+- Remove `mb-1` from the title row
 
-### 3. `src/components/ImageUploader.tsx` — Smaller preview in side mode
-- Accept optional `compact` prop
-- When compact: reduce `max-h-64` to `max-h-40`, reduce padding from `p-8` to `p-4`
+### 3. `src/components/ImageUploader.tsx` — Smaller upload box
+- Reduce icon container from `w-16 h-16` to `w-12 h-12`
+- Reduce icon from `w-8 h-8` to `w-6 h-6`
+- Reduce inner padding from `py-4` to `py-2` and outer from `p-8` to `p-5`
+- Reduce title from `text-lg` to `text-base`
 
-### 4. `src/components/ResultCard.tsx` — Compact card fitting viewport
-- Reduce internal padding from `p-5` to `p-3`, `space-y-4` to `space-y-2`
-- Reduce header padding from `py-4` to `py-2`
-- Reduce audio button padding from `py-5` to `py-3`
-- Remove `max-w-md` constraint so card fills available width
-- Accept optional `compact` prop to toggle these reductions
+### 4. `src/pages/Index.tsx` — Vertically center content, remove scroll
+- Change default `<main>` from `flex-1 overflow-y-auto` to `flex-1 flex items-center justify-center overflow-hidden`
+- Reduce content spacing from `py-8 space-y-6` to `py-3 space-y-4`
+- Reduce button padding from `py-6` to `py-4`
+- Reduce footer padding from `pt-8 pb-4` to `pt-4 pb-2`
 
-### Responsive
-- Desktop (`md+`): no scroll anywhere, everything fits
-- Mobile (`< md`): allow `overflow-y-auto` on the main container so stacked content can scroll
+### 5. `src/components/CropSelector.tsx` — Tighten label spacing
+- Reduce label margin from `mb-2` to `mb-1`
 
 ## Files
+- `src/index.css`
 - `src/components/Header.tsx`
 - `src/pages/Index.tsx`
 - `src/components/ImageUploader.tsx`
-- `src/components/ResultCard.tsx`
+- `src/components/CropSelector.tsx`
 
