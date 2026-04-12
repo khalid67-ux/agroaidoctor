@@ -1,40 +1,31 @@
 
 
 ## Goal
-Relax the healthy leaf thresholds so that clearly green, disease-free leaves are classified as "✅ সুস্থ পাতা" instead of falling into "Possibly Diseased".
-
-## Root Cause
-The current healthy threshold requires `greenRatio > 0.45` AND `totalDiseaseSignal < 0.05`. Many real healthy leaf photos have `greenRatio` between 0.30–0.45 (due to lighting, background, stems) and minor noise in disease signals, causing them to fall into the `possibly_diseased` bucket.
+Restructure the Index page so that **before upload** the layout stays centered as-is, and **after an image is uploaded** the layout switches to a side-by-side two-column view (left: upload/controls, right: result) that fits within the viewport without scrolling. Mobile remains stacked.
 
 ## Changes
 
-### 1. `src/lib/diseaseData.ts` — Relax healthy thresholds
+### `src/pages/Index.tsx` — Layout restructure
 
-**Healthy detection (lines ~313-322):**
-- Lower green threshold from `0.45` → `0.35`
-- Raise disease signal tolerance from `0.05` → `0.08`
-- Add a green-dominance boost: if `greenRatio >= 0.60`, set minimum confidence to `0.90`
-- Base confidence formula: `0.80 + greenRatio * 0.15` (was `0.85 + greenRatio * 0.1`)
+**Before upload (`!preview`)**: Keep the current single-column centered layout unchanged — `max-w-lg mx-auto`.
 
-**Possibly diseased (lines ~324-335):**
-- Narrow this range: only trigger if `greenRatio` is between `0.20–0.35` (was `0.30`)
-- Keep disease signal threshold at `< 0.10`
-- This prevents healthy leaves from falling into this bucket
+**After upload (`preview` is set)**: Switch to a two-column flex/grid layout:
+- Container: `h-[calc(100vh-header_height)]`, `overflow-hidden`, `grid grid-cols-1 md:grid-cols-2 gap-6`
+- **Left column**: Image preview, crop selector, detect button, reset button — scrollable within its column if needed (`overflow-y-auto`)
+- **Right column**: Error message, ResultCard, footer — scrollable within its column
+- Animate the transition with `transition-all duration-300`
 
-**New decision order:**
-```text
-greenRatio >= 0.35 AND diseaseSignal < 0.08  →  Healthy (conf 80-98%)
-greenRatio >= 0.60 AND diseaseSignal < 0.08  →  Healthy (conf 90-98%, boosted)
-greenRatio >= 0.20 AND diseaseSignal < 0.10  →  Possibly Diseased (60-79%)
-diseaseSignal >= 0.06 with clear winner       →  Disease detected
-```
+**Responsive**: On mobile (`< md`), both columns stack vertically with `overflow-y-auto` on the main container.
 
-### 2. `src/components/ResultCard.tsx` — Show confidence percentage on healthy card
+**Spacing**: Reduce `py-8` to `py-4` and `space-y-6` to `space-y-4` in the two-column mode to fit within the viewport.
 
-- For healthy status, display "সুস্থ পাতা (XX% নিশ্চিত)" in the card header
-- Ensure no warning messages appear for confident healthy results
+### `src/components/Header.tsx` — Compact when image uploaded
+
+No changes needed — header stays as-is. We'll account for its height (~88px) in the main area calc.
+
+### No other files changed
+Colors, fonts, theme, ResultCard, ImageUploader, CropSelector all remain untouched.
 
 ## Files
-- `src/lib/diseaseData.ts` — threshold adjustments
-- `src/components/ResultCard.tsx` — healthy confidence display
+- `src/pages/Index.tsx` — conditional layout switch from centered to two-column grid
 
