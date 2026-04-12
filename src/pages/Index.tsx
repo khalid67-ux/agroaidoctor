@@ -68,11 +68,6 @@ const Index = () => {
                 🔍 রোগ নির্ণয় করুন
               </Button>
             </div>
-
-            <footer className="text-center text-xs text-muted-foreground pt-4 pb-2 w-full">
-              <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি</p>
-              <p className="mt-1">অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
-            </footer>
           </div>
         </main>
       ) : (
@@ -118,13 +113,13 @@ const Index = () => {
                 </p>
               </div>
             )}
-
-            <footer className="text-center text-xs text-muted-foreground py-1 w-full shrink-0 mt-auto">
-              <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি | অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
-            </footer>
           </div>
         </main>
       )}
+
+      <footer className="text-center text-xs text-muted-foreground py-1 w-full shrink-0">
+        <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি | অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
+      </footer>
     </div>
   );
 };
