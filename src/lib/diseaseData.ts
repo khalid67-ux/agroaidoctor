@@ -391,6 +391,20 @@ export async function speakBangla(text: string, onStatus?: StatusCallback) {
   stopBangla();
   onStatus?.('loading');
 
+  // Create Audio element SYNCHRONOUSLY in user gesture context
+  const audio = new Audio();
+  currentAudio = audio;
+
+  audio.onplay = () => onStatus?.('speaking');
+  audio.onended = () => {
+    stopBangla();
+    onStatus?.('idle');
+  };
+  audio.onerror = () => {
+    stopBangla();
+    onStatus?.('error');
+  };
+
   try {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -416,19 +430,8 @@ export async function speakBangla(text: string, onStatus?: StatusCallback) {
     const objectUrl = URL.createObjectURL(blob);
     currentObjectUrl = objectUrl;
 
-    const audio = new Audio(objectUrl);
-    currentAudio = audio;
-
-    audio.onplay = () => onStatus?.('speaking');
-    audio.onended = () => {
-      stopBangla();
-      onStatus?.('idle');
-    };
-    audio.onerror = () => {
-      stopBangla();
-      onStatus?.('error');
-    };
-
+    // Set src and play — works on mobile because Audio was created in gesture context
+    audio.src = objectUrl;
     await audio.play();
   } catch (err) {
     console.error('TTS error:', err);
