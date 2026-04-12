@@ -111,28 +111,96 @@ function calculateBlurScore(data: Uint8ClampedArray, width: number, height: numb
   return variance;
 }
 
+function computeEdgeDensity(data: Uint8ClampedArray, width: number, height: number): number {
+  // Sobel-like edge detection on grayscale
+  const gray = new Float32Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    const idx = i * 4;
+    gray[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+  }
+
+  let edgeCount = 0;
+  const threshold = 30;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const gx =
+        -gray[(y - 1) * width + (x - 1)] + gray[(y - 1) * width + (x + 1)]
+        - 2 * gray[y * width + (x - 1)] + 2 * gray[y * width + (x + 1)]
+        - gray[(y + 1) * width + (x - 1)] + gray[(y + 1) * width + (x + 1)];
+      const gy =
+        -gray[(y - 1) * width + (x - 1)] - 2 * gray[(y - 1) * width + x] - gray[(y - 1) * width + (x + 1)]
+        + gray[(y + 1) * width + (x - 1)] + 2 * gray[(y + 1) * width + x] + gray[(y + 1) * width + (x + 1)];
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      if (mag > threshold) edgeCount++;
+    }
+  }
+  return edgeCount / ((width - 2) * (height - 2));
+}
+
+function detectSkyAndSkin(data: Uint8ClampedArray): { skyRatio: number; skinRatio: number } {
+  const totalPixels = data.length / 4;
+  let skyCount = 0;
+  let skinCount = 0;
+
+  for (let i = 0; i < data.length; i += 8) { // sample every 2nd pixel
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    // Sky: blue dominant, bright
+    if (b > 140 && b > r * 1.3 && b > g * 1.1 && r < 180) skyCount++;
+    // Skin tone detection (common ranges)
+    if (r > 120 && g > 80 && b > 50 && r > g && g > b && r - b > 30 && r < 240 && g < 200) skinCount++;
+  }
+
+  const sampled = Math.floor(totalPixels / 2);
+  return { skyRatio: skyCount / sampled, skinRatio: skinCount / sampled };
+}
+
+function computeColorVariance(data: Uint8ClampedArray): number {
+  // Measure how varied colors are — uniform images have low variance
+  let sumR = 0, sumG = 0, sumB = 0;
+  let sumR2 = 0, sumG2 = 0, sumB2 = 0;
+  let count = 0;
+
+  for (let i = 0; i < data.length; i += 16) { // sample every 4th pixel
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    sumR += r; sumG += g; sumB += b;
+    sumR2 += r * r; sumG2 += g * g; sumB2 += b * b;
+    count++;
+  }
+
+  const varR = sumR2 / count - (sumR / count) ** 2;
+  const varG = sumG2 / count - (sumG / count) ** 2;
+  const varB = sumB2 / count - (sumB / count) ** 2;
+  return (varR + varG + varB) / 3;
+}
+
 function detectLeaf(features: ImageFeatures, imageData: ImageData): number {
   const data = imageData.data;
   const totalPixels = data.length / 4;
+  const width = imageData.width;
+  const height = imageData.height;
 
   // 1. Plant-like color presence (green + yellow-brown)
   const plantColorRatio = features.greenRatio + features.yellowBrownRatio;
 
   // Hard reject: no plant colors at all
   if (features.greenRatio < 0.08 && features.yellowBrownRatio < 0.05) {
-    return 0.15;
+    return 0.10;
   }
 
-  // 2. Saturation check — leaves have natural saturation, artificial objects are often gray
+  // 2. Sky/Skin detection — reject dominant sky or skin
+  const { skyRatio, skinRatio } = detectSkyAndSkin(data);
+  if (skyRatio > 0.4) return 0.12;
+  if (skinRatio > 0.35) return 0.15;
+
+  // 3. Saturation & blue/red check
   let saturatedCount = 0;
   let blueRedDominant = 0;
-  for (let i = 0; i < data.length; i += 16) { // sample every 4th pixel for speed
+  for (let i = 0; i < data.length; i += 16) {
     const r = data[i], g = data[i + 1], b = data[i + 2];
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const saturation = max === 0 ? 0 : (max - min) / max;
     if (saturation > 0.2) saturatedCount++;
-    // Count blue/red dominant pixels (non-plant)
     if (b > r * 1.2 && b > g * 1.2 && b > 80) blueRedDominant++;
     if (r > g * 1.4 && r > b * 1.4 && r > 100 && g < 80) blueRedDominant++;
   }
@@ -140,34 +208,57 @@ function detectLeaf(features: ImageFeatures, imageData: ImageData): number {
   const saturationRatio = saturatedCount / Math.max(sampledPixels, 1);
   const blueRedRatio = blueRedDominant / Math.max(sampledPixels, 1);
 
-  // High blue/red dominance = not a leaf
-  if (blueRedRatio > 0.4) {
-    return 0.2;
-  }
+  if (blueRedRatio > 0.4) return 0.18;
 
-  // 3. Compute leaf confidence score
+  // 4. Edge density — leaves have moderate organic texture
+  const edgeDensity = computeEdgeDensity(data, width, height);
+
+  // 5. Color variance — leaves have gradual transitions, not uniform blocks
+  const colorVariance = computeColorVariance(data);
+
+  // 6. Compute leaf confidence score
   let score = 0;
 
-  // Green presence is the strongest signal (0-0.4)
-  score += Math.min(features.greenRatio * 1.0, 0.4);
+  // Green presence (0-0.35)
+  score += Math.min(features.greenRatio * 0.9, 0.35);
 
-  // Plant color presence bonus (0-0.25)
-  score += Math.min(plantColorRatio * 0.5, 0.25);
+  // Plant color presence bonus (0-0.2)
+  score += Math.min(plantColorRatio * 0.4, 0.2);
 
-  // Saturation indicates natural colors (0-0.2)
-  score += Math.min(saturationRatio * 0.25, 0.2);
+  // Saturation indicates natural colors (0-0.15)
+  score += Math.min(saturationRatio * 0.2, 0.15);
 
-  // Penalize heavy blue/red
-  score -= blueRedRatio * 0.3;
-
-  // Penalize very low color diversity (uniform objects)
-  if (features.greenRatio > 0 && features.yellowBrownRatio === 0 && features.darkSpotRatio === 0) {
-    score -= 0.1; // too uniform, suspicious
+  // Edge density: moderate is leaf-like (0.05-0.4 range ideal)
+  if (edgeDensity >= 0.05 && edgeDensity <= 0.45) {
+    score += 0.12; // organic texture bonus
+  } else if (edgeDensity < 0.02) {
+    score -= 0.15; // too flat (wall, sky, solid color)
+  } else if (edgeDensity > 0.6) {
+    score -= 0.10; // too cluttered (busy scene)
   }
 
-  // Bonus for having both green + brown (typical of real leaves)
+  // Color variance: moderate variance is leaf-like
+  if (colorVariance > 200 && colorVariance < 4000) {
+    score += 0.08; // natural color variation
+  } else if (colorVariance < 50) {
+    score -= 0.12; // too uniform (solid object)
+  }
+
+  // Penalize blue/red
+  score -= blueRedRatio * 0.3;
+
+  // Penalize sky and skin
+  score -= skyRatio * 0.25;
+  score -= skinRatio * 0.2;
+
+  // Bonus for both green + brown (typical of real leaves)
   if (features.greenRatio > 0.1 && features.yellowBrownRatio > 0.02) {
-    score += 0.15;
+    score += 0.12;
+  }
+
+  // Penalize very low color diversity
+  if (features.greenRatio > 0 && features.yellowBrownRatio === 0 && features.darkSpotRatio === 0) {
+    score -= 0.1;
   }
 
   return Math.max(0, Math.min(1, score));
@@ -283,14 +374,22 @@ export async function simulatePrediction(imageDataUrl: string, selectedCrop?: st
     };
   }
 
-  // Leaf detection gate
+  // Leaf detection gate — stricter threshold
   const leafConfidence = detectLeaf(features, imgData);
-  if (leafConfidence < 0.70) {
+  if (leafConfidence < 0.60) {
     return {
       status: 'not_leaf',
       confidence: leafConfidence,
       blurScore,
-      uncertainMessage: "❌ এটি একটি পাতা নয়। অনুগ্রহ করে একটি পাতার ছবি আপলোড করুন।",
+      uncertainMessage: "❌ এটি পাতার ছবি নয়। অনুগ্রহ করে একটি স্পষ্ট পাতার ছবি আপলোড করুন।",
+    };
+  }
+  if (leafConfidence < 0.75) {
+    return {
+      status: 'uncertain',
+      confidence: leafConfidence,
+      blurScore,
+      uncertainMessage: "⚠️ নিশ্চিত হওয়া যায়নি এটি পাতা কিনা। অনুগ্রহ করে পরিষ্কার পাতার ছবি দিন।",
     };
   }
 
