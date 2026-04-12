@@ -6,7 +6,7 @@ interface HeaderProps {
 
 const Header = ({ compact }: HeaderProps) => (
   <header
-    className={`gradient-hero ${compact ? "py-1.5" : "pt-.5 pb-1"} shadow-agro flex flex-col items-stretch justify-center relative w-full`}
+    className={`gradient-hero ${compact ? "py-1.5" : "pt-1 pb-1"} shadow-agro flex flex-col items-stretch justify-center relative w-full`}
   >
     <div className="w-full flex items-center justify-start gap-2 pl-6 mt-7 mb-1">
       <Leaf className={`${compact ? "w-6 h-6" : "w-7 h-7"} text-primary-foreground`} />
