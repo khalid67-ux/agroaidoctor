@@ -1,26 +1,31 @@
 
 
 ## Goal
-1. Move the title "অ্যাগ্রোএআই ডক্টর" down slightly (add top margin/padding)
-2. Move the subtitle "🌾 AI দিয়ে..." up closer to the title (reduce `mt-1` gap)
+Balance header vertical spacing so space above title equals space below subtitle.
 
 ## Changes
 
 ### `src/components/Header.tsx`
-- Add `pt-1` or `mt-1` to the branding row div to push the title down a bit
-- Change subtitle's `mt-1` to `mt-0.5` or `-mt-0.5` to bring it closer/up
+- Header padding: `py-4` (16px top and bottom) when not compact, `py-2` when compact
+- Add `justify-center` to the flex column
+- Title row: `mb-1` (4px below)
+- Subtitle: `mt-1` (4px above), no extra bottom margin
 
 ```tsx
 const Header = ({ compact }: HeaderProps) => (
-  <header className={`gradient-hero ${compact ? "py-2" : "pt-3 pb-2"} shadow-agro flex flex-col items-stretch relative w-full`}>
-    <div className="w-full flex items-center justify-start gap-2 pl-6">
+  <header
+    className={`gradient-hero ${compact ? "py-2" : "py-4"} shadow-agro flex flex-col items-stretch justify-center relative w-full`}
+  >
+    <div className="w-full flex items-center justify-start gap-2 pl-6 mb-1">
       <Leaf className={`${compact ? "w-6 h-6" : "w-7 h-7"} text-primary-foreground`} />
-      <h1 className={`${compact ? "text-lg md:text-xl" : "text-xl md:text-2xl"} font-extrabold text-primary-foreground tracking-tight`}>
+      <h1
+        className={`${compact ? "text-lg md:text-xl" : "text-xl md:text-2xl"} font-extrabold text-primary-foreground tracking-tight`}
+      >
         অ্যাগ্রোএআই ডক্টর
       </h1>
     </div>
     {!compact && (
-      <p className="block w-full text-center text-primary-foreground/80 text-xs md:text-sm font-medium mt-0.5">
+      <p className="block w-full text-center text-primary-foreground/80 text-xs md:text-sm font-medium mt-1">
         🌾 AI দিয়ে ফসলের পাতার রোগ নির্ণয় করুন
       </p>
     )}
@@ -28,8 +33,11 @@ const Header = ({ compact }: HeaderProps) => (
 );
 ```
 
-- `pt-3` (was `py-2`) gives the title more breathing room from top
-- `mt-0.5` (was `mt-1`) pulls the subtitle closer to the title
+Key fixes:
+- `py-4` gives equal 16px top/bottom padding
+- `justify-center` vertically centers the content block
+- `mb-1` on title row + `mt-1` on subtitle = symmetric 4px gap between them
+- Removed `px-4` (was on header), kept `pl-6` on branding row only
 
 ## Files
 - `src/components/Header.tsx`
