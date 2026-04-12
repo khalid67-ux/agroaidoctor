@@ -76,7 +76,7 @@ const Index = () => {
           </div>
         </main>
       ) : (
-        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-10 px-5 py-2 overflow-hidden min-h-0">
+        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-14 px-5 py-2 overflow-hidden min-h-0">
           {/* Left column */}
           <div className="flex flex-col space-y-2 min-h-0 overflow-hidden">
             <ImageUploader onImageSelect={handleImageSelect} preview={preview} compact />
@@ -108,7 +108,7 @@ const Index = () => {
             )}
 
             {result ? (
-              <div className="animate-fade-in flex-1">
+              <div className="animate-fade-in flex-1 min-h-0 overflow-y-auto">
                 <ResultCard result={result} compact />
               </div>
             ) : (
@@ -119,7 +119,7 @@ const Index = () => {
               </div>
             )}
 
-            <footer className="text-center text-xs text-muted-foreground py-2 w-full shrink-0">
+            <footer className="text-center text-xs text-muted-foreground py-1 w-full shrink-0 mt-auto">
               <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি | অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
             </footer>
           </div>
