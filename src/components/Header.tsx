@@ -9,17 +9,8 @@ const Header = ({ compact }: HeaderProps) => (
     {/* Left: branding */}
     <div className="flex items-center gap-1.5 z-10">
       <Leaf className="w-5 h-5 text-primary-foreground" />
-      <h1 className="text-primary-foreground text-xl md:text-2xl font-bold leading-none">
-        অ্যাগ্রোএআই ডক্টর
-      </h1>
+      <h1 className="text-primary-foreground text-xl md:text-2xl font-bold leading-none">অ্যাগ্রোএআই ডক্টর</h1>
     </div>
-
-    {/* Center: subtitle */}
-    {!compact && (
-      <p className="absolute left-1/2 -translate-x-1/2 text-primary-foreground text-base md:text-lg font-semibold whitespace-nowrap">
-        🌾 AI ভিত্তিক ফসলের রোগ নির্ণয়
-      </p>
-    )}
 
     {/* Right: AI Active badge */}
     <div className="ml-auto z-10">
