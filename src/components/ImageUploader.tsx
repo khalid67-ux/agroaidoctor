@@ -40,7 +40,7 @@ const ImageUploader = ({ onImageSelect, preview, compact }: ImageUploaderProps) 
         onClick={() => inputRef.current?.click()}
       >
         {preview ? (
-          <img src={preview} alt="আপলোড করা পাতার ছবি" className={`w-full ${compact ? "max-h-40" : "max-h-64"} object-contain rounded-lg mx-auto`} />
+          <img src={preview} alt="আপলোড করা পাতার ছবি" className={`w-full ${compact ? "max-h-32" : "max-h-64"} object-contain rounded-lg mx-auto`} />
         ) : (
           <div className="flex flex-col items-center gap-2 py-2">
             <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">

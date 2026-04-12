@@ -81,9 +81,9 @@ const ResultCard = ({ result, compact }: ResultCardProps) => {
     return "রোগ সনাক্ত হয়েছে ⚠️";
   };
 
-  const p = compact ? "p-3" : "p-5";
-  const sp = compact ? "space-y-2" : "space-y-4";
-  const hp = compact ? "px-4 py-2" : "px-5 py-4";
+  const p = compact ? "p-2" : "p-5";
+  const sp = compact ? "space-y-1.5" : "space-y-4";
+  const hp = compact ? "px-3 py-1.5" : "px-5 py-4";
 
   return (
     <div className={`w-full ${compact ? "" : "max-w-md"} mx-auto rounded-xl overflow-hidden shadow-agro border ${getBorderStyle()} flex flex-col`}>
@@ -193,7 +193,7 @@ const ResultCard = ({ result, compact }: ResultCardProps) => {
           <Button
             onClick={handleSpeak}
             disabled={speakStatus === 'loading'}
-            className={`w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm ${compact ? "py-3" : "py-5"}`}
+            className={`w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm ${compact ? "py-2" : "py-5"}`}
           >
             {speakStatus === 'loading' ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> ⏳ অডিও তৈরি হচ্ছে...</>

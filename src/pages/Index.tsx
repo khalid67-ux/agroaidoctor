@@ -76,9 +76,9 @@ const Index = () => {
           </div>
         </main>
       ) : (
-        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 px-5 py-3 overflow-hidden min-h-0">
+        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-10 px-5 py-2 overflow-hidden min-h-0">
           {/* Left column */}
-          <div className="flex flex-col space-y-3 min-h-0 overflow-y-auto">
+          <div className="flex flex-col space-y-2 min-h-0 overflow-hidden">
             <ImageUploader onImageSelect={handleImageSelect} preview={preview} compact />
             <CropSelector value={crop} onChange={setCrop} />
 
@@ -102,7 +102,7 @@ const Index = () => {
           </div>
 
           {/* Right column */}
-          <div className="flex flex-col min-h-0 overflow-y-auto">
+          <div className="flex flex-col min-h-0 overflow-hidden">
             {error && (
               <p className="text-center text-destructive font-medium text-sm mb-2">{error}</p>
             )}
