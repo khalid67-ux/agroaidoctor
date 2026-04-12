@@ -8,7 +8,7 @@ interface CropSelectorProps {
 
 const CropSelector = ({ value, onChange }: CropSelectorProps) => (
   <div className="w-full max-w-md mx-auto">
-    <label className="block text-sm font-semibold text-foreground mb-2">🌱 ফসল নির্বাচন করুন (ঐচ্ছিক)</label>
+    <label className="block text-sm font-semibold text-foreground mb-1">🌱 ফসল নির্বাচন করুন (ঐচ্ছিক)</label>
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="bg-card border-border">
         <SelectValue placeholder="ফসল বেছে নিন" />
