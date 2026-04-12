@@ -1,31 +1,41 @@
 
 
 ## Goal
-Restructure the Index page so that **before upload** the layout stays centered as-is, and **after an image is uploaded** the layout switches to a side-by-side two-column view (left: upload/controls, right: result) that fits within the viewport without scrolling. Mobile remains stacked.
+Fix the side-by-side layout so both columns fit within the viewport without any scrolling, with the audio button always visible.
 
 ## Changes
 
-### `src/pages/Index.tsx` — Layout restructure
+### 1. `src/components/Header.tsx` — Compact header in side layout
+- Accept an optional `compact` prop
+- When compact: reduce `py-6` to `py-2`, hide subtitle, shrink icon/title size
+- This saves ~40px of vertical space
 
-**Before upload (`!preview`)**: Keep the current single-column centered layout unchanged — `max-w-lg mx-auto`.
+### 2. `src/pages/Index.tsx` — No-scroll two-column layout
+- Pass `compact` to Header when `hasSideLayout`
+- Remove `overflow-y-auto` and `min-h-0` from both columns
+- Add `overflow-hidden` to both columns so nothing scrolls
+- Reduce gap and padding: `gap-3 px-3 py-2`
+- Reduce button padding from `py-5` to `py-3`
+- Right column: use `flex flex-col h-full justify-between` so ResultCard and footer fill space without overflow
 
-**After upload (`preview` is set)**: Switch to a two-column flex/grid layout:
-- Container: `h-[calc(100vh-header_height)]`, `overflow-hidden`, `grid grid-cols-1 md:grid-cols-2 gap-6`
-- **Left column**: Image preview, crop selector, detect button, reset button — scrollable within its column if needed (`overflow-y-auto`)
-- **Right column**: Error message, ResultCard, footer — scrollable within its column
-- Animate the transition with `transition-all duration-300`
+### 3. `src/components/ImageUploader.tsx` — Smaller preview in side mode
+- Accept optional `compact` prop
+- When compact: reduce `max-h-64` to `max-h-40`, reduce padding from `p-8` to `p-4`
 
-**Responsive**: On mobile (`< md`), both columns stack vertically with `overflow-y-auto` on the main container.
+### 4. `src/components/ResultCard.tsx` — Compact card fitting viewport
+- Reduce internal padding from `p-5` to `p-3`, `space-y-4` to `space-y-2`
+- Reduce header padding from `py-4` to `py-2`
+- Reduce audio button padding from `py-5` to `py-3`
+- Remove `max-w-md` constraint so card fills available width
+- Accept optional `compact` prop to toggle these reductions
 
-**Spacing**: Reduce `py-8` to `py-4` and `space-y-6` to `space-y-4` in the two-column mode to fit within the viewport.
-
-### `src/components/Header.tsx` — Compact when image uploaded
-
-No changes needed — header stays as-is. We'll account for its height (~88px) in the main area calc.
-
-### No other files changed
-Colors, fonts, theme, ResultCard, ImageUploader, CropSelector all remain untouched.
+### Responsive
+- Desktop (`md+`): no scroll anywhere, everything fits
+- Mobile (`< md`): allow `overflow-y-auto` on the main container so stacked content can scroll
 
 ## Files
-- `src/pages/Index.tsx` — conditional layout switch from centered to two-column grid
+- `src/components/Header.tsx`
+- `src/pages/Index.tsx`
+- `src/components/ImageUploader.tsx`
+- `src/components/ResultCard.tsx`
 
