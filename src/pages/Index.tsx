@@ -22,7 +22,8 @@ const Index = () => {
     setError(null);
   };
 
-  const handleDetect = async () => {
+  const handleDetect = async (e: React.MouseEvent) => {
+    e.preventDefault();
     if (!preview) return;
     setLoading(true);
     setError(null);
@@ -36,7 +37,8 @@ const Index = () => {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = (e: React.MouseEvent) => {
+    e.preventDefault();
     setImageFile(null);
     setPreview(null);
     setResult(null);
@@ -67,16 +69,16 @@ const Index = () => {
               </Button>
             </div>
 
-            <footer className="text-center text-xs text-muted-foreground pt-4 pb-2">
+            <footer className="text-center text-xs text-muted-foreground pt-4 pb-2 w-full">
               <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি</p>
               <p className="mt-1">অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
             </footer>
           </div>
         </main>
       ) : (
-        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-2 overflow-hidden">
+        <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 px-5 py-3 overflow-hidden min-h-0">
           {/* Left column */}
-          <div className="flex flex-col space-y-3 overflow-hidden">
+          <div className="flex flex-col space-y-3 min-h-0 overflow-y-auto">
             <ImageUploader onImageSelect={handleImageSelect} preview={preview} compact />
             <CropSelector value={crop} onChange={setCrop} />
 
@@ -100,13 +102,15 @@ const Index = () => {
           </div>
 
           {/* Right column */}
-          <div className="flex flex-col justify-between overflow-hidden">
+          <div className="flex flex-col min-h-0 overflow-y-auto">
             {error && (
-              <p className="text-center text-destructive font-medium text-sm">{error}</p>
+              <p className="text-center text-destructive font-medium text-sm mb-2">{error}</p>
             )}
 
             {result ? (
-              <ResultCard result={result} compact />
+              <div className="animate-fade-in flex-1">
+                <ResultCard result={result} compact />
+              </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-muted-foreground text-center text-sm">
@@ -115,7 +119,7 @@ const Index = () => {
               </div>
             )}
 
-            <footer className="text-center text-xs text-muted-foreground py-1">
+            <footer className="text-center text-xs text-muted-foreground py-2 w-full shrink-0">
               <p>🌾 বাংলাদেশের কৃষকদের জন্য তৈরি | অ্যাগ্রোএআই ডক্টর © ২০২৬</p>
             </footer>
           </div>
