@@ -1,33 +1,23 @@
 
 
 ## Goal
-Update the header to a professional layout: logo + title left-aligned on the first row, subtitle centered below.
+Fix the header so title and subtitle are properly contained inside it with correct column stacking.
+
+## Root Cause
+The `<header>` element lacks `flex flex-col` — the title row and subtitle are not being stacked vertically within the header container.
 
 ## Changes
 
 ### `src/components/Header.tsx`
+- Add `flex flex-col` to the `<header>` element so children stack vertically
+- Add `relative` to prevent any overflow issues
+- Keep all existing classes and compact logic unchanged
 
-- Remove `text-center` from `<header>`
-- **Top row**: `flex items-center justify-start` with left padding — Leaf icon + title inline, left-aligned
-- **Second row**: Subtitle `<p>` with `text-center w-full` centered across the full header width
-- Keep `compact` behavior: in compact mode, hide subtitle and reduce sizes (same as now)
-- Keep all existing classes for colors, fonts, gradient, shadow
-
-```
-<header className={`gradient-hero ${compact ? "py-2" : "py-3"} px-4 shadow-agro`}>
-  <div className="flex items-center justify-start gap-2">
-    <Leaf icon />
-    <h1>অ্যাগ্রোএআই ডক্টর</h1>
-  </div>
-  {!compact && (
-    <p className="text-center text-primary-foreground/80 ...">
-      🌾 AI দিয়ে ফসলের পাতার রোগ নির্ণয় করুন
-    </p>
-  )}
-</header>
+```tsx
+<header className={`gradient-hero ${compact ? "py-2" : "py-3"} px-4 shadow-agro flex flex-col relative`}>
 ```
 
-No other files changed.
+Single line change, no other files affected.
 
 ## Files
 - `src/components/Header.tsx`
