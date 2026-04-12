@@ -17,7 +17,7 @@ const Header = ({ compact }: HeaderProps) => (
       </h1>
     </div>
     {!compact && (
-      <p className="block w-full text-center text-primary-foreground/100 text-xs md:text-sm font-medium mt-0 -translate-y-5">
+      <p className="block w-full text-center text-primary-foreground/100 text-xs md:text-sm font-medium mt-0 -translate-y-6">
         🌾 AI দিয়ে ফসলের পাতার রোগ নির্ণয় করুন
       </p>
     )}
