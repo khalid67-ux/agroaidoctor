@@ -18,7 +18,7 @@ const Header = ({ compact }: HeaderProps) => (
     <div className="absolute right-6 top-1/2 -translate-y-1/2">
       <span className="flex items-center gap-1 text-xs bg-white text-green-700 px-3 py-1.5 rounded-full font-semibold shadow-md">
         <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-        AI Active
+        🤖 AI Active
       </span>
     </div>
   </header>
