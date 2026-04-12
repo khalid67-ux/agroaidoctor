@@ -13,7 +13,7 @@ const Header = ({ compact }: HeaderProps) => (
       </h1>
     </div>
 
-    <p className="block w-full text-center text-primary-foreground/100 text-xs md:text-sm font-medium leading-none -translate-y-6">
+    <p className="block w-full text-center text-primary-foreground/100 text-base md:text-lg font-semibold leading-tight mt-0 -translate-y-7">
       🌾 AI দিয়ে ফসলের পাতার রোগ নির্ণয় করুন
     </p>
   </header>
