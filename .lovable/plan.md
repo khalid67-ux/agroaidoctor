@@ -1,21 +1,19 @@
 
 
 ## Goal
-Fix header alignment so title is left-aligned and subtitle is centered, with clean column layout.
-
-## Current State
-The Header.tsx already has `flex flex-col relative` but the user reports alignment issues. Looking at the code, the structure is correct but may need explicit `items-stretch` instead of default, and the subtitle needs `w-full` to ensure full-width centering.
+Ensure the title (with logo) is left-aligned and vertically centered within the header, and the subtitle is horizontally centered across the full navbar width — both properly positioned in the middle of their respective spaces.
 
 ## Changes
 
 ### `src/components/Header.tsx`
-- Change header classes: replace `flex flex-col relative` with `flex flex-col items-stretch relative w-full`
-- Top row div: add `pl-6` (24px left padding), keep `flex items-center justify-start gap-2`
-- Subtitle `<p>`: ensure it's a separate block outside the flex row with `text-center w-full mt-1.5` — remove any flex parent influence
+- Make the header a `relative` container so the subtitle can be absolutely centered
+- Title row: left-aligned with `flex items-center`, vertically centered naturally by header padding
+- Subtitle: use `absolute left-0 right-0 bottom` positioning with `text-center` to center it perfectly across the full navbar width, independent of the title position
+- Adjust padding so both rows sit cleanly within the header
 
 ```tsx
 const Header = ({ compact }: HeaderProps) => (
-  <header className={`gradient-hero ${compact ? "py-2" : "py-3"} px-4 shadow-agro flex flex-col items-stretch relative w-full`}>
+  <header className={`gradient-hero ${compact ? "py-2" : "py-3 pb-7"} px-4 shadow-agro relative w-full`}>
     <div className="flex items-center justify-start gap-2 pl-2">
       <Leaf className={`${compact ? "w-6 h-6" : "w-7 h-7"} text-primary-foreground`} />
       <h1 className={`${compact ? "text-lg md:text-xl" : "text-xl md:text-2xl"} font-extrabold text-primary-foreground tracking-tight`}>
@@ -23,13 +21,15 @@ const Header = ({ compact }: HeaderProps) => (
       </h1>
     </div>
     {!compact && (
-      <p className="w-full text-center text-primary-foreground/80 text-xs md:text-sm font-medium mt-1.5">
+      <p className="absolute bottom-2 left-0 right-0 text-center text-primary-foreground/80 text-xs md:text-sm font-medium">
         🌾 AI দিয়ে ফসলের পাতার রোগ নির্ণয় করুন
       </p>
     )}
   </header>
 );
 ```
+
+Key difference: subtitle uses `absolute` positioning so it's truly centered across the full navbar width regardless of the title's position. Extra `pb-7` on the header ensures space for the absolutely-positioned subtitle.
 
 ## Files
 - `src/components/Header.tsx`
