@@ -10,7 +10,7 @@ const Header = ({ compact }: HeaderProps) => (
       <Leaf className="w-5 h-5 text-primary-foreground" />
      <p className="block w-full text-center text-primary-foreground/100 text-sm md:text-base font-semibold leading-tight mt-0 -translate-y-7">
         অ্যাগ্রোএআই ডক্টর
-      </h1>
+      </p>
     </div>
 
     <p className="block w-full text-center text-primary-foreground/100 text-base md:text-lg font-semibold leading-tight mt-0 -translate-y-7">
