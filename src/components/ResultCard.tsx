@@ -65,12 +65,13 @@ const ResultCard = ({ result, compact }: ResultCardProps) => {
     return "border-destructive/30 bg-destructive/5";
   };
 
+  const iconSize = compact ? "w-5 h-5" : "w-6 h-6";
   const getHeaderIcon = () => {
-    if (isHealthy) return <CheckCircle className="w-6 h-6 text-primary-foreground" />;
-    if (isNotLeaf) return <AlertTriangle className="w-6 h-6 text-destructive-foreground" />;
-    if (isPossiblyDiseased) return <ShieldAlert className="w-6 h-6 text-primary-foreground" />;
-    if (isUncertain) return <HelpCircle className="w-6 h-6 text-foreground" />;
-    return <AlertTriangle className="w-6 h-6 text-destructive-foreground" />;
+    if (isHealthy) return <CheckCircle className={`${iconSize} text-primary-foreground`} />;
+    if (isNotLeaf) return <AlertTriangle className={`${iconSize} text-destructive-foreground`} />;
+    if (isPossiblyDiseased) return <ShieldAlert className={`${iconSize} text-primary-foreground`} />;
+    if (isUncertain) return <HelpCircle className={`${iconSize} text-foreground`} />;
+    return <AlertTriangle className={`${iconSize} text-destructive-foreground`} />;
   };
 
   const getHeaderText = () => {
@@ -111,7 +112,7 @@ const ResultCard = ({ result, compact }: ResultCardProps) => {
           <>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">নির্ভুলতা</span>
-              <span className={`${compact ? "text-xl" : "text-2xl"} font-extrabold text-foreground`}>{confidence}%</span>
+              <span className={`${compact ? "text-lg" : "text-2xl"} font-extrabold text-foreground`}>{confidence}%</span>
             </div>
             <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
               <div
@@ -146,9 +147,9 @@ const ResultCard = ({ result, compact }: ResultCardProps) => {
 
         {/* Disease detected */}
         {isDiseased && result.disease && (
-          <div className="space-y-2">
+          <div className={compact ? "space-y-1" : "space-y-2"}>
             <div>
-              <h3 className="font-bold text-foreground text-base">🦠 {result.disease.name_bn}</h3>
+              <h3 className={`font-bold text-foreground ${compact ? "text-sm" : "text-base"}`}>🦠 {result.disease.name_bn}</h3>
               <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mt-1 ${
                 result.disease.severity === 'high' ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-secondary-foreground"
               }`}>
@@ -157,18 +158,18 @@ const ResultCard = ({ result, compact }: ResultCardProps) => {
             </div>
             <div>
               <h4 className="font-semibold text-foreground text-xs mb-1">📋 বিস্তারিত:</h4>
-              <p className="text-muted-foreground text-xs leading-relaxed">{result.disease.description_bn}</p>
+              <p className={`text-muted-foreground text-xs ${compact ? "leading-snug" : "leading-relaxed"}`}>{result.disease.description_bn}</p>
             </div>
             <div>
-              <h4 className="font-semibold text-foreground text-xs mb-1">💊 সমাধান:</h4>
-              <p className="text-muted-foreground text-xs leading-relaxed whitespace-pre-line">{result.disease.solution_bn}</p>
+              <h4 className="font-semibold text-foreground text-xs mb-0.5">💊 সমাধান:</h4>
+              <p className={`text-muted-foreground text-xs whitespace-pre-line ${compact ? "leading-snug" : "leading-relaxed"}`}>{result.disease.solution_bn}</p>
             </div>
           </div>
         )}
 
         {/* Top-2 predictions */}
         {result.topPredictions && result.topPredictions.length > 0 && (
-          <div className="border border-border rounded-lg p-2 space-y-1">
+          <div className={`border border-border rounded-lg ${compact ? "p-1.5" : "p-2"} space-y-1`}>
             <h4 className="font-semibold text-foreground text-xs">📊 সম্ভাব্য রোগ:</h4>
             {result.topPredictions.map((pred, idx) => (
               <div key={pred.disease.id} className="flex items-center justify-between">
